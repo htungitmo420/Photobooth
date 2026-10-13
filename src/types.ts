@@ -1,6 +1,8 @@
 export type AppStep = 'setup' | 'capture' | 'edit'
 export type LayoutId = 'strip3' | 'strip4' | 'grid4'
 export type FilterId = 'original' | 'mono' | 'warm' | 'cool' | 'vintage' | 'soft'
+export type FlashMode = 'off' | 'auto' | 'on'
+export type StickerCategory = 'cute' | 'text' | 'nature' | 'shapes' | 'lucky' | 'retro'
 
 export interface BoothLayout {
   id: LayoutId
@@ -25,7 +27,8 @@ export interface BoothFrame {
   description: string
   config: FrameConfig
   assetUrl?: string
-  source: 'supabase' | 'fallback'
+  source: 'supabase' | 'fallback' | 'local'
+  layoutId?: LayoutId
 }
 
 export interface CapturedPhoto {
@@ -33,12 +36,26 @@ export interface CapturedPhoto {
   dataUrl: string
 }
 
+export interface StickerAsset {
+  id: string
+  name: string
+  category: StickerCategory
+  kind: 'emoji' | 'image'
+  content: string
+}
+
 export interface BoothSticker {
   id: string
-  emoji: string
+  assetId: string
+  name: string
+  kind: 'emoji' | 'image'
+  content: string
   x: number
   y: number
   size: number
+  rotation: number
+  flipX: boolean
+  zIndex: number
 }
 
 export interface BoothSession {

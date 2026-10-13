@@ -103,6 +103,13 @@ Sticker chỉ là trang trí cho bộ ảnh. Không có thư viện asset lớn,
 - Camera ngoài có flash vật lý chỉ được điều khiển khi camera và driver đưa capability tương thích cho trình duyệt. Nếu không có capability, giao diện báo rõ “Thiết bị không cho trình duyệt điều khiển flash” và chuyển sang flash màn hình; không giả định mọi webcam/DSLR có flash đều điều khiển được qua web.
 - Thực hiện một bước thử nghiệm riêng với các camera ngoài mục tiêu. Thiết bị cần hot-shoe, SDK hãng hoặc trigger USB riêng sẽ được ghi thành tích hợp thiết bị cụ thể sau P1 web, không chặn luồng flash màn hình.
 
+### P1.4 — Countdown tùy chỉnh và frame cá nhân
+
+- Người dùng nhập countdown từ 0–30 giây; giá trị được nhớ trong `localStorage` cho lần mở sau. Giá trị 0 chụp ngay, các giá trị còn lại vẫn phát tín hiệu theo từng giây nếu âm thanh được bật.
+- Người dùng thêm frame PNG/WebP tối đa 5 MB cho bố cục đang chọn. Ứng dụng kiểm tra MIME, khả năng giải mã và tỷ lệ khung trước khi lưu.
+- File frame và metadata được lưu bằng IndexedDB trong trình duyệt, không tải lên Supabase. Frame cá nhân chỉ xuất hiện trên trình duyệt đã thêm và có thể xóa bất kỳ lúc nào.
+- Frame cá nhân đi qua cùng renderer với frame Supabase để bản xem trước và file xuất khớp nhau.
+
 ### Các hạng mục P1 đã có
 
 - Nhập ảnh từ thiết bị để thay một ô khi không có camera.
@@ -300,12 +307,13 @@ photobooth/
 
 ### Giai đoạn E — P1: zoom, sticker và flash
 
-- [ ] Tách `CameraViewport` và phép biến đổi crop/zoom dùng chung; thêm pan, pinch, reset và fallback zoom phần mềm.
-- [ ] Bổ sung chọn camera theo thiết bị, đọc capabilities sau mỗi lần đổi camera và xử lý constraint không được hỗ trợ.
-- [ ] Tạo migration cho `photobooth_stickers`, bucket `photobooth-stickers`, RLS và bộ sticker khởi đầu; thêm tải lười và fallback cục bộ.
-- [ ] Xây editor sticker trực tiếp với pointer/touch, bàn phím, resize, rotate, flip, reorder, duplicate và delete.
-- [ ] Thêm flash Tắt/Tự động/Bật, bộ đo sáng cục bộ, flash màn hình và torch khi được hỗ trợ; đảm bảo cleanup trên mọi đường thoát.
+- [x] Tách phép biến đổi crop/zoom dùng chung; thêm pan, reset và fallback zoom phần mềm.
+- [x] Bổ sung chọn camera theo thiết bị, đọc capabilities sau mỗi lần đổi camera và xử lý constraint không được hỗ trợ.
+- [x] Tạo migration cho `photobooth_stickers`, bucket `photobooth-stickers`, RLS và bộ sticker khởi đầu; thêm tải lười và fallback cục bộ.
+- [x] Xây editor sticker trực tiếp với pointer/touch, bàn phím, resize, rotate, flip, reorder, duplicate và delete.
+- [x] Thêm flash Tắt/Tự động/Bật, bộ đo sáng cục bộ, flash màn hình và torch khi được hỗ trợ; đảm bảo cleanup trên mọi đường thoát.
 - [ ] Kiểm thử camera nguồn 4:3, 16:9, 9:16; webcam tích hợp; ít nhất một webcam USB; môi trường sáng và tối; desktop và mobile thật.
+- [x] Thêm countdown 0–30 giây có ghi nhớ cục bộ và frame PNG/WebP lưu bằng IndexedDB.
 
 **Điều kiện xong:** preview, ảnh chụp và file xuất không có viền đen ngoài chủ ý; sticker thao tác trực tiếp và xuất đúng; flash có kết quả dự đoán được, tự hạ cấp an toàn khi phần cứng không hỗ trợ.
 
@@ -345,6 +353,8 @@ photobooth/
 | Torch được hỗ trợ | Bật đúng thời điểm và luôn tắt sau chụp/hủy/lỗi/ẩn tab | Mock track + thiết bị thật |
 | Camera ngoài không cho điều khiển flash | Hiện trạng thái không hỗ trợ và dùng flash màn hình | Webcam USB + mock capability rỗng |
 | Quyền riêng tư P1 | Frame đo sáng và ảnh người dùng không rời khỏi thiết bị | Quan sát network |
+| Countdown tùy chỉnh | Nhận 0–30 giây, nhớ sau reload và không tạo timer thừa khi hủy | Unit/timer giả + E2E |
+| Frame cá nhân | Lưu qua reload, chỉ hiện đúng layout, xuất đúng và xóa sạch được | IndexedDB integration + E2E |
 
 Trình duyệt mục tiêu khi phát hành: Chrome/Edge desktop, Chrome Android và Safari iPhone ở các phiên bản stable đang được hỗ trợ tại thời điểm triển khai. Playwright dùng Chromium và WebKit để kiểm thử tự động; WebKit không thay thế việc kiểm tra camera/tải ảnh trên iPhone thật. Ghi rõ phiên bản đã kiểm thử trong README.
 

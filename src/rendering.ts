@@ -104,12 +104,28 @@ export async function composeStrip(session: BoothSession, scale = 1) {
     context.globalAlpha = 1
   }
 
+  const imageStickers = await Promise.all(session.stickers.map(async (sticker) => {
+    if (sticker.kind !== 'image') return null
+    try { return await loadImage(sticker.content) } catch { return null }
+  }))
   context.textAlign = 'center'
   context.textBaseline = 'middle'
-  session.stickers.forEach((sticker) => {
-    context.font = `${sticker.size * width}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`
-    context.fillText(sticker.emoji, sticker.x * width, sticker.y * height)
-  })
+  session.stickers
+    .map((sticker, index) => ({ sticker, image: imageStickers[index] }))
+    .sort((a, b) => a.sticker.zIndex - b.sticker.zIndex)
+    .forEach(({ sticker, image }) => {
+      const size = sticker.size * width
+      context.save()
+      context.translate(sticker.x * width, sticker.y * height)
+      context.rotate(sticker.rotation * Math.PI / 180)
+      context.scale(sticker.flipX ? -1 : 1, 1)
+      if (image) context.drawImage(image, -size / 2, -size / 2, size, size)
+      else {
+        context.font = `${size}px "Segoe UI Emoji", "Apple Color Emoji", system-ui, sans-serif`
+        context.fillText(sticker.content, 0, 0)
+      }
+      context.restore()
+    })
 
   return canvas
 }

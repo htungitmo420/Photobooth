@@ -1,4 +1,4 @@
-import type { BoothFrame, BoothLayout, FilterId } from './types'
+import type { BoothFrame, BoothLayout, FilterId, StickerAsset, StickerCategory } from './types'
 
 export const LAYOUTS: BoothLayout[] = [
   {
@@ -48,4 +48,31 @@ export const FILTERS: Array<{ id: FilterId; name: string; css: string }> = [
   { id: 'soft', name: 'Nhẹ', css: 'brightness(1.08) contrast(.88) saturate(.92)' },
 ]
 
-export const STICKER_CHOICES = ['✦', '♡', '☺', '★', '☻', '♥', '☁', '✿']
+const STICKER_GROUPS: Record<StickerCategory, Array<[string, string]>> = {
+  cute: [['rabbit', '🐰'], ['bear', '🧸'], ['bow', '🎀'], ['heart', '💗'], ['chick', '🐥'], ['cat', '🐱'], ['flower-face', '🌸'], ['sparkle-heart', '💖']],
+  text: [['love', 'LOVE'], ['wow', 'WOW!'], ['xoxo', 'XOXO'], ['besties', 'BFF'], ['yes', 'YES!'], ['smile', 'SMILE']],
+  nature: [['clover', '🍀'], ['flower', '🌼'], ['cherry', '🍒'], ['leaf', '🌿'], ['sun', '☀️'], ['rainbow', '🌈'], ['cloud', '☁️'], ['butterfly', '🦋']],
+  shapes: [['sparkle', '✦'], ['heart-outline', '♡'], ['star', '★'], ['circle', '●'], ['diamond', '◆'], ['burst', '✺'], ['moon', '☾'], ['flower-shape', '✿']],
+  lucky: [['mushroom', '🍄'], ['dice', '🎲'], ['horseshoe', '🧲'], ['crystal', '💎'], ['key', '🗝️'], ['eight-ball', '🎱'], ['red-envelope', '🧧'], ['fortune', '🥠']],
+  retro: [['camera', '📷'], ['cassette', '📼'], ['disc', '💿'], ['game', '🎮'], ['phone', '☎️'], ['glasses', '🕶️'], ['roller', '🛼'], ['lightning', '⚡']],
+}
+
+export const STICKER_CATEGORIES: Array<{ id: 'all' | StickerCategory; name: string }> = [
+  { id: 'all', name: 'Tất cả' },
+  { id: 'cute', name: 'Dễ thương' },
+  { id: 'text', name: 'Chữ' },
+  { id: 'nature', name: 'Thiên nhiên' },
+  { id: 'shapes', name: 'Hình khối' },
+  { id: 'lucky', name: 'May mắn' },
+  { id: 'retro', name: 'Retro' },
+]
+
+export const FALLBACK_STICKERS: StickerAsset[] = Object.entries(STICKER_GROUPS).flatMap(([category, items]) =>
+  items.map(([id, content]) => ({
+    id: `${category}-${id}`,
+    name: id.replaceAll('-', ' '),
+    category: category as StickerCategory,
+    kind: 'emoji' as const,
+    content,
+  })),
+)

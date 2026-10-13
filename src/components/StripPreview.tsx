@@ -6,9 +6,11 @@ interface Props {
   session: BoothSession
   interactive?: boolean
   onMoveSticker?: (id: string, x: number, y: number) => void
+  selectedStickerId?: string | null
+  onSelectSticker?: (id: string) => void
 }
 
-export function StripPreview({ session, interactive = false, onMoveSticker }: Props) {
+export function StripPreview({ session, interactive = false, onMoveSticker, selectedStickerId, onSelectSticker }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(false)
@@ -50,13 +52,27 @@ export function StripPreview({ session, interactive = false, onMoveSticker }: Pr
       {rendering && <span className="render-badge">Đang cập nhật…</span>}
       {interactive && session.stickers.map((sticker) => (
         <button
-          className="sticker-handle"
+          className={`sticker-handle ${selectedStickerId === sticker.id ? 'selected' : ''}`}
           key={sticker.id}
-          aria-label={`Di chuyển sticker ${sticker.emoji}`}
+          aria-label={`Di chuyển sticker ${sticker.name}`}
+          onClick={() => onSelectSticker?.(sticker.id)}
+          onKeyDown={(event) => {
+            const step = event.shiftKey ? 0.025 : 0.008
+            const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key]
+            if (!delta || !onMoveSticker) return
+            event.preventDefault()
+            onMoveSticker(sticker.id, Math.min(.96, Math.max(.04, sticker.x + delta[0])), Math.min(.96, Math.max(.04, sticker.y + delta[1])))
+          }}
           onPointerDown={(event) => moveSticker(event, sticker.id)}
-          style={{ left: `${sticker.x * 100}%`, top: `${sticker.y * 100}%`, fontSize: `${sticker.size * 100}%` }}
+          style={{
+            left: `${sticker.x * 100}%`, top: `${sticker.y * 100}%`,
+            width: `${sticker.size * 100}%`, aspectRatio: '1',
+            transform: `translate(-50%, -50%) rotate(${sticker.rotation}deg) scaleX(${sticker.flipX ? -1 : 1})`,
+          }}
         >
-          <span aria-hidden="true">{sticker.emoji}</span>
+          {sticker.kind === 'image'
+            ? <img src={sticker.content} alt="" draggable={false} />
+            : <span aria-hidden="true">{sticker.content}</span>}
         </button>
       ))}
     </div>
