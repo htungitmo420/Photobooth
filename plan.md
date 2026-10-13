@@ -1,6 +1,6 @@
 # Kế hoạch xây dựng Photobooth
 
-Ngày lập: 14/10/2026. Tên repo: `photobooth`. Trạng thái: đang triển khai P0.
+Ngày lập: 14/10/2026. Tên repo: `photobooth`. Trạng thái: P0 đã được chấp nhận; P1 đã chốt phạm vi và chờ triển khai.
 
 ### Trạng thái triển khai ngày 14/10/2026
 
@@ -75,10 +75,38 @@ Sticker chỉ là trang trí cho bộ ảnh. Không có thư viện asset lớn,
 
 ## 4. Các phần để sau và ngoài phạm vi
 
-**P1 — chỉ cân nhắc sau khi P0 chạy ổn định:**
+**P1 — phạm vi đã được chấp nhận ngày 14/10/2026:**
+
+### P1.1 — Camera phủ kín khung, zoom và căn lại ảnh
+
+- Khung camera khi chụp luôn phủ kín vùng xem trước theo tỷ lệ của ô ảnh hiện tại. Dùng crop kiểu `cover`, không kéo méo và không để lộ viền đen trong vùng ảnh dù nguồn là 4:3, 16:9 hay 9:16.
+- Cho phép zoom bằng thanh trượt và cử chỉ pinch; kéo ảnh để căn lại chủ thể, nhấn đúp để đặt lại. Giới hạn độ lệch để người dùng không thể kéo nguồn ảnh ra khỏi mép khung.
+- Một phép biến đổi chuẩn hóa gồm `zoom`, `offsetX`, `offsetY` được dùng chung cho camera preview, ảnh chụp, xem lại và file xuất. Ảnh xuất phải khớp bố cục người dùng thấy lúc bấm chụp.
+- Đọc khả năng của video track sau khi camera sẵn sàng. Nếu thiết bị công bố dải zoom thì ưu tiên zoom của camera; nếu không có hoặc áp dụng thất bại thì dùng crop/scale bằng phần mềm.
+- Khi đổi camera, đặt lại hoặc hiệu chỉnh zoom theo khả năng của camera mới; không giữ một giá trị mà thiết bị mới không hỗ trợ.
+
+### P1.2 — Thư viện sticker và thao tác trực tiếp
+
+- Mở rộng 8 sticker P0 thành thư viện sticker theo nhóm, ưu tiên các nhóm: Tất cả, Dễ thương, Chữ, Thiên nhiên, Hình khối, May mắn và Retro. Thanh sticker nhanh và bảng thư viện mở rộng cùng dùng một nguồn dữ liệu.
+- Chạm/bấm sticker để thêm vào dải ảnh; hỗ trợ kéo thả bằng chuột hoặc cảm ứng, phóng to/thu nhỏ, xoay, lật ngang, đưa lên trước, nhân bản và xóa ngay trên bản xem trước.
+- Giữ điều khiển bàn phím cho chọn, dịch chuyển, đổi kích thước và xóa. Vùng chạm tối thiểu 44 px; thao tác pinch/rotate không làm cuộn trang ngoài ý muốn.
+- Giới hạn tối đa 20 sticker trong một phiên và hạ độ phân giải thumbnail để thao tác vẫn mượt trên điện thoại. Renderer xem trước và renderer xuất dùng cùng thứ tự layer, tọa độ và phép biến đổi.
+- Metadata sticker lưu trong bảng `photobooth_stickers`; asset PNG/WebP hoặc SVG đã kiểm tra lưu trong bucket công khai `photobooth-stickers`. Public chỉ được đọc asset đã phát hành; quyền ghi dành cho service role/admin theo migration và RLS.
+- Metadata tối thiểu: `id`, `name`, `category`, `tags`, `asset_path`, `width`, `height`, `sort_order`, `is_published`, `created_at`, `updated_at`. Tải lười thumbnail, cache asset và dùng preset cục bộ khi Supabase tạm thời không truy cập được.
+
+### P1.3 — Flash thích ứng và camera ngoài
+
+- Có ba chế độ **Tắt / Tự động / Bật**. Chế độ Tự động lấy mẫu frame video thu nhỏ ngay trên thiết bị để ước lượng độ sáng; dùng ngưỡng có hysteresis để trạng thái không bật/tắt liên tục. Không tải frame đo sáng lên mạng.
+- Thứ tự thực hiện khi cần flash: dùng torch/đèn của track nếu trình duyệt và camera công bố khả năng điều khiển; nếu không thì dùng flash màn hình toàn màn hình màu trắng ấm, tăng sáng trước khi chụp một khoảng ngắn rồi khôi phục giao diện.
+- Flash màn hình phải đồng bộ với countdown và thời điểm lấy frame, không xuất hiện trong ảnh ghép, không làm mất focus, và luôn được tắt khi hủy, lỗi, đổi camera, ẩn tab hoặc kết thúc phiên.
+- Sau khi người dùng cấp quyền, liệt kê camera bằng nhãn thiết bị để chọn webcam/camera USB ngoài. Mỗi lần đổi thiết bị phải đọc lại capabilities và chỉ hiện tùy chọn flash phần cứng khi track thực sự hỗ trợ.
+- Camera ngoài có flash vật lý chỉ được điều khiển khi camera và driver đưa capability tương thích cho trình duyệt. Nếu không có capability, giao diện báo rõ “Thiết bị không cho trình duyệt điều khiển flash” và chuyển sang flash màn hình; không giả định mọi webcam/DSLR có flash đều điều khiển được qua web.
+- Thực hiện một bước thử nghiệm riêng với các camera ngoài mục tiêu. Thiết bị cần hot-shoe, SDK hãng hoặc trigger USB riêng sẽ được ghi thành tích hợp thiết bị cụ thể sau P1 web, không chặn luồng flash màn hình.
+
+### Các hạng mục P1 đã có
 
 - Nhập ảnh từ thiết bị để thay một ô khi không có camera.
-- Crop/zoom từng ảnh trong ô, đổi thứ tự ảnh.
+- Crop/zoom từng ảnh đã chụp trong ô, đổi thứ tự ảnh.
 - Polaroid và vài khung theo mùa.
 - Hoàn tác thao tác trang trí trong phiên hiện tại.
 - Khung PNG tùy chỉnh kèm cấu hình ô ảnh được kiểm tra hợp lệ.
@@ -270,6 +298,17 @@ photobooth/
 
 **Điều kiện xong:** repo mới có mã nguồn, CI đạt và website thực tế chụp/xuất được trên nhóm thiết bị mục tiêu.
 
+### Giai đoạn E — P1: zoom, sticker và flash
+
+- [ ] Tách `CameraViewport` và phép biến đổi crop/zoom dùng chung; thêm pan, pinch, reset và fallback zoom phần mềm.
+- [ ] Bổ sung chọn camera theo thiết bị, đọc capabilities sau mỗi lần đổi camera và xử lý constraint không được hỗ trợ.
+- [ ] Tạo migration cho `photobooth_stickers`, bucket `photobooth-stickers`, RLS và bộ sticker khởi đầu; thêm tải lười và fallback cục bộ.
+- [ ] Xây editor sticker trực tiếp với pointer/touch, bàn phím, resize, rotate, flip, reorder, duplicate và delete.
+- [ ] Thêm flash Tắt/Tự động/Bật, bộ đo sáng cục bộ, flash màn hình và torch khi được hỗ trợ; đảm bảo cleanup trên mọi đường thoát.
+- [ ] Kiểm thử camera nguồn 4:3, 16:9, 9:16; webcam tích hợp; ít nhất một webcam USB; môi trường sáng và tối; desktop và mobile thật.
+
+**Điều kiện xong:** preview, ảnh chụp và file xuất không có viền đen ngoài chủ ý; sticker thao tác trực tiếp và xuất đúng; flash có kết quả dự đoán được, tự hạ cấp an toàn khi phần cứng không hỗ trợ.
+
 ## 10. Tiêu chí nghiệm thu và kiểm thử
 
 | Tình huống | Kết quả bắt buộc | Cách kiểm tra |
@@ -291,6 +330,22 @@ photobooth/
 | Điện thoại màn nhỏ | Không tràn ngang, nút chính không bị bàn phím/safe area che | Viewport 360/390 px + máy thật |
 | Quyền riêng tư | Không có request tải ảnh người dùng lên mạng | Quan sát network trong luồng thật |
 
+### Tiêu chí nghiệm thu P1
+
+| Tình huống | Kết quả bắt buộc | Cách kiểm tra |
+| --- | --- | --- |
+| Camera 4:3, 16:9 và 9:16 | Vùng chụp được phủ kín, không có viền đen và không kéo méo | Fixture video + camera thật |
+| Zoom/pan lúc chụp | Không kéo lộ mép nguồn; reset về trạng thái hợp lệ | Unit hình học + E2E pointer/touch |
+| Preview so với ảnh chụp/xuất | Cùng crop, zoom và vị trí chủ thể trong sai số render cho phép | So sánh ảnh fixture |
+| Thiết bị có/không có hardware zoom | Dùng capability khi có; fallback phần mềm không làm hỏng phiên | Mock track capabilities + camera thật |
+| Thư viện sticker | Lọc theo nhóm, tải lười, lỗi Supabase vẫn có preset cục bộ | Integration + chế độ offline |
+| Sticker chuột/cảm ứng/bàn phím | Thêm, kéo, resize, xoay, lật, sắp lớp và xóa được | E2E desktop/mobile + accessibility |
+| File xuất có sticker | Vị trí, kích thước, góc xoay, lật và thứ tự layer khớp preview | So sánh hình |
+| Flash Tự động | Bật dưới ngưỡng tối, không chớp liên tục gần ngưỡng | Video fixture sáng/tối + máy thật |
+| Torch được hỗ trợ | Bật đúng thời điểm và luôn tắt sau chụp/hủy/lỗi/ẩn tab | Mock track + thiết bị thật |
+| Camera ngoài không cho điều khiển flash | Hiện trạng thái không hỗ trợ và dùng flash màn hình | Webcam USB + mock capability rỗng |
+| Quyền riêng tư P1 | Frame đo sáng và ảnh người dùng không rời khỏi thiết bị | Quan sát network |
+
 Trình duyệt mục tiêu khi phát hành: Chrome/Edge desktop, Chrome Android và Safari iPhone ở các phiên bản stable đang được hỗ trợ tại thời điểm triển khai. Playwright dùng Chromium và WebKit để kiểm thử tự động; WebKit không thay thế việc kiểm tra camera/tải ảnh trên iPhone thật. Ghi rõ phiên bản đã kiểm thử trong README.
 
 ## 11. Định nghĩa hoàn thành P0
@@ -303,4 +358,4 @@ Trình duyệt mục tiêu khi phát hành: Chrome/Edge desktop, Chrome Android 
 - [ ] Luồng camera/xuất ảnh đã kiểm tra trên desktop, Android và iPhone thật; ghi rõ giới hạn còn lại nếu có.
 - [x] Repo có README, lockfile, CI và không phụ thuộc asset hình ảnh bên thứ ba trong P0.
 
-**Ưu tiên thực hiện:** camera và chuỗi chụp ổn định → ảnh ghép và xuất đúng → giao diện đẹp → trang trí. Chỉ mở P1 sau khi toàn bộ P0 đạt tiêu chí nghiệm thu.
+**Ưu tiên P1:** camera phủ kín khung và zoom đồng nhất → sticker từ Supabase và editor trực tiếp → flash thích ứng → kiểm thử camera ngoài. P0 đã được người dùng chấp nhận ngày 14/10/2026; các ô kiểm thử thiết bị thật còn lại tiếp tục là cổng phát hành, không làm thay đổi phạm vi P1 đã chốt.
