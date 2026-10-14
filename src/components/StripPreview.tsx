@@ -1,5 +1,5 @@
 import { Maximize2, RotateCw, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { composeStrip } from '../rendering'
 import type { BoothSession } from '../types'
 
@@ -18,11 +18,16 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(false)
+  const renderStickers = interactive ? null : session.stickers
+  const renderSession = useMemo(
+    () => interactive ? { ...session, stickers: [] } : session,
+    [interactive, session.layout, session.frame, session.filter, session.photos, session.caption, session.showDate, session.date, renderStickers],
+  )
 
   useEffect(() => {
     let cancelled = false
     setRendering(true)
-    composeStrip(interactive ? { ...session, stickers: [] } : session, 0.5)
+    composeStrip(renderSession, 0.5)
       .then((canvas) => {
         if (cancelled || !canvasRef.current) return
         canvasRef.current.width = canvas.width
@@ -31,7 +36,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
       })
       .finally(() => !cancelled && setRendering(false))
     return () => { cancelled = true }
-  }, [interactive, session])
+  }, [renderSession])
 
   const moveSticker = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
     if (!interactive || !onMoveSticker || !wrapRef.current) return
@@ -55,6 +60,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
+    const pointerId = event.pointerId
     const rect = wrapRef.current.getBoundingClientRect()
     const sticker = session.stickers.find((item) => item.id === id)
     if (!sticker) return
@@ -62,19 +68,57 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
     const centerY = rect.top + sticker.y * rect.height
     const initialDistance = Math.max(1, Math.hypot(event.clientX - centerX, event.clientY - centerY))
     const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return
       const distance = Math.hypot(moveEvent.clientX - centerX, moveEvent.clientY - centerY)
       onUpdateSticker(id, { size: Math.min(.36, Math.max(.06, initialSize * distance / initialDistance)) })
     }
-    const handleUp = () => {
+    const handleUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return
       window.removeEventListener('pointermove', handleMove)
       window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleUp)
     }
     window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerup', handleUp, { once: true })
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleUp)
+  }
+
+  const rotateSticker = (event: React.PointerEvent<HTMLButtonElement>, id: string, initialRotation: number) => {
+    if (!interactive || !onUpdateSticker || !wrapRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const pointerId = event.pointerId
+    const rect = wrapRef.current.getBoundingClientRect()
+    const sticker = session.stickers.find((item) => item.id === id)
+    if (!sticker) return
+    const centerX = rect.left + sticker.x * rect.width
+    const centerY = rect.top + sticker.y * rect.height
+    let previousAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX)
+    let rotation = initialRotation
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return
+      const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX)
+      let change = (angle - previousAngle) * 180 / Math.PI
+      if (change > 180) change -= 360
+      if (change < -180) change += 360
+      rotation += change
+      previousAngle = angle
+      onUpdateSticker(id, { rotation: Math.round(rotation) })
+    }
+    const handleUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleUp)
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleUp)
   }
 
   return (
-    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''}`} style={{ aspectRatio: `${session.layout.width}/${session.layout.height}` }}>
+    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''} ${interactive ? 'interactive' : ''}`} style={{ aspectRatio: `${session.layout.width}/${session.layout.height}` }}>
       <canvas
         ref={canvasRef}
         aria-label={onPreview ? 'Mở bản xem trước dải ảnh' : 'Bản xem trước dải ảnh'}
@@ -118,7 +162,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
               : <span aria-hidden="true">{sticker.content}</span>}
           </button>
           {selectedStickerId === sticker.id && <>
-            <button className="sticker-direct-control rotate" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onUpdateSticker?.(sticker.id, { rotation: sticker.rotation + 15 }) }} aria-label={`Xoay sticker ${sticker.name}`}><RotateCw /></button>
+            <button className="sticker-direct-control rotate" onPointerDown={(event) => rotateSticker(event, sticker.id, sticker.rotation)} onClick={(event) => { if (event.detail === 0) onUpdateSticker?.(sticker.id, { rotation: sticker.rotation + 15 }) }} aria-label={`Giữ và kéo để xoay sticker ${sticker.name}`}><RotateCw /></button>
             <button className="sticker-direct-control remove" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onRemoveSticker?.(sticker.id) }} aria-label={`Xóa sticker ${sticker.name}`}><Trash2 /></button>
             <button className="sticker-direct-control resize" onPointerDown={(event) => resizeSticker(event, sticker.id, sticker.size)} aria-label={`Đổi kích thước sticker ${sticker.name}`}><Maximize2 /></button>
           </>}

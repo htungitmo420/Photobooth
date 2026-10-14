@@ -52,7 +52,7 @@ const STICKER_GROUPS: Record<StickerCategory, Array<[string, string]>> = {
   cute: [['rabbit', '🐰'], ['bear', '🧸'], ['bow', '🎀'], ['heart', '💗'], ['chick', '🐥'], ['cat', '🐱'], ['flower-face', '🌸'], ['sparkle-heart', '💖']],
   text: [],
   nature: [['clover', '🍀'], ['flower', '🌼'], ['cherry', '🍒'], ['leaf', '🌿'], ['sun', '☀️'], ['rainbow', '🌈'], ['cloud', '☁️'], ['butterfly', '🦋']],
-  shapes: [['sparkle', '✦'], ['heart-outline', '♡'], ['star', '★'], ['circle', '●'], ['diamond', '◆'], ['burst', '✺'], ['moon', '☾'], ['flower-shape', '✿']],
+  shapes: [],
   lucky: [['mushroom', '🍄'], ['dice', '🎲'], ['horseshoe', '🧲'], ['crystal', '💎'], ['key', '🗝️'], ['eight-ball', '🎱'], ['red-envelope', '🧧'], ['fortune', '🥠']],
   retro: [['camera', '📷'], ['cassette', '📼'], ['disc', '💿'], ['game', '🎮'], ['phone', '☎️'], ['glasses', '🕶️'], ['roller', '🛼'], ['lightning', '⚡']],
 }
@@ -61,7 +61,6 @@ export const STICKER_CATEGORIES: Array<{ id: 'all' | StickerCategory; name: stri
   { id: 'all', name: 'Tất cả' },
   { id: 'cute', name: 'Dễ thương' },
   { id: 'nature', name: 'Thiên nhiên' },
-  { id: 'shapes', name: 'Hình khối' },
   { id: 'lucky', name: 'May mắn' },
   { id: 'retro', name: 'Retro' },
 ]

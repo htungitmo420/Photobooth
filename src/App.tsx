@@ -72,6 +72,7 @@ export default function App() {
   const [stickers, setStickers] = useState<BoothSticker[]>([])
   const [stickerAssets, setStickerAssets] = useState<StickerAsset[]>(FALLBACK_STICKERS)
   const [stickerCategory, setStickerCategory] = useState<'all' | StickerCategory>('all')
+  const [editorPanelTab, setEditorPanelTab] = useState<'design' | 'stickers'>('design')
   const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null)
   const [remoteStickers, setRemoteStickers] = useState(false)
   const [sessionDate, setSessionDate] = useState(() => new Date())
@@ -83,7 +84,7 @@ export default function App() {
   const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null)
   const cancelRef = useRef(0)
   const frameInputRef = useRef<HTMLInputElement>(null)
-  const previewDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
+  const previewDragRef = useRef<{ pointerId: number; x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const camera = useCamera()
 
   useEffect(() => {
@@ -143,7 +144,7 @@ export default function App() {
 
   const setReviewZoom = (zoom: number) => {
     const next = Math.min(4, Math.max(0.75, zoom))
-    setPreviewView((current) => next <= 1 ? { zoom: next, x: 0, y: 0 } : { ...current, zoom: next })
+    setPreviewView((current) => ({ ...current, zoom: next }))
   }
 
   useEffect(() => {
@@ -175,7 +176,7 @@ export default function App() {
 
   const visibleFrames = useMemo(() => frames.filter((item) => !item.layoutId || item.layoutId === layout.id), [frames, layout.id])
   const visibleStickerAssets = useMemo(
-    () => stickerAssets.filter((item) => item.category !== 'text' && (stickerCategory === 'all' || item.category === stickerCategory)),
+    () => stickerAssets.filter((item) => item.category !== 'text' && item.category !== 'shapes' && (stickerCategory === 'all' || item.category === stickerCategory)),
     [stickerAssets, stickerCategory],
   )
   const selectedSticker = stickers.find((item) => item.id === selectedStickerId) ?? null
@@ -493,10 +494,15 @@ export default function App() {
 
           <div className="editor-panel">
             <div className="editor-title"><div><p className="eyebrow">Bước cuối</p><h1>Thêm chút dấu ấn</h1></div><Sparkles /></div>
+            <div className="editor-tabs" role="group" aria-label="Tùy chỉnh ảnh">
+              <button aria-pressed={editorPanelTab === 'design'} className={editorPanelTab === 'design' ? 'selected' : ''} onClick={() => setEditorPanelTab('design')}>Bộ lọc & khung</button>
+              <button aria-pressed={editorPanelTab === 'stickers'} className={editorPanelTab === 'stickers' ? 'selected' : ''} onClick={() => setEditorPanelTab('stickers')}>Sticker {stickers.length > 0 && `(${stickers.length})`}</button>
+            </div>
 
-            <section className="control-section"><h3>Bộ lọc</h3><div className="filter-grid">{FILTERS.map((item) => <button key={item.id} className={filter === item.id ? 'selected' : ''} onClick={() => setFilter(item.id)}><span style={{ filter: item.css }} /><small>{item.name}</small></button>)}</div></section>
+            {editorPanelTab === 'design' && <div className="editor-design">
+            <section className="control-section filter-section"><h3>Bộ lọc</h3><div className="filter-grid">{FILTERS.map((item) => <button key={item.id} className={filter === item.id ? 'selected' : ''} onClick={() => setFilter(item.id)}><span style={{ filter: item.css }} /><small>{item.name}</small></button>)}</div></section>
 
-            <section className="control-section">
+            <section className="control-section frame-section">
               <div className="section-line"><h3>Khung ảnh</h3><span className={remoteFrames ? 'source online' : 'source'}>{remoteFrames ? 'Supabase + máy' : 'Bản mẫu + máy'}</span></div>
               <div className="frame-grid">
                 {visibleFrames.map((item) => <div className="frame-option" key={item.id}><button title={item.description} className={frame.id === item.id ? 'selected' : ''} onClick={() => setFrame(item)}>{item.assetUrl ? <img src={item.assetUrl} alt="" /> : <i style={{ background: item.config.background, borderColor: item.config.accent }} />}{item.name}</button>{item.source === 'local' && <button className="delete-frame" onClick={() => void removeLocalFrame(item)} aria-label={`Xóa ${item.name}`}><Trash2 size={13} /></button>}</div>)}
@@ -506,14 +512,16 @@ export default function App() {
               <p className="hint">PNG/WebP tối đa 5 MB, đúng tỷ lệ bố cục hiện tại. Frame được lưu riêng trong trình duyệt này.</p>
             </section>
 
-            <section className="control-section"><h3>Lời nhắn</h3><div className="caption-field"><input value={caption} disabled={Boolean(frame.assetUrl)} maxLength={60} onChange={(event) => setCaption(event.target.value)} placeholder="KHOẢNH KHẮC" /><span>{caption.length}/60</span></div><label className="check-line"><input type="checkbox" disabled={Boolean(frame.assetUrl)} checked={showDate} onChange={(event) => setShowDate(event.target.checked)} /> Hiện ngày chụp</label>{frame.assetUrl && <p className="hint">Frame này dùng thiết kế footer có sẵn nên lời nhắn và ngày mặc định được ẩn.</p>}</section>
+            <section className="control-section caption-section"><h3>Lời nhắn</h3><div className="caption-field"><input value={caption} disabled={Boolean(frame.assetUrl)} maxLength={60} onChange={(event) => setCaption(event.target.value)} placeholder="KHOẢNH KHẮC" /><span>{caption.length}/60</span></div><label className="check-line"><input type="checkbox" disabled={Boolean(frame.assetUrl)} checked={showDate} onChange={(event) => setShowDate(event.target.checked)} /> Hiện ngày chụp</label>{frame.assetUrl && <p className="hint">Frame này dùng thiết kế footer có sẵn nên lời nhắn và ngày mặc định được ẩn.</p>}</section>
+            </div>}
 
+            {editorPanelTab === 'stickers' && <div className="editor-stickers">
             <section className="control-section sticker-section">
               <div className="section-line"><h3>Sticker</h3><span>{stickers.length}/20 · {remoteStickers ? 'Supabase' : 'Có sẵn'}</span></div>
               <div className="sticker-categories">{STICKER_CATEGORIES.map((category) => <button key={category.id} className={stickerCategory === category.id ? 'selected' : ''} onClick={() => setStickerCategory(category.id)}>{category.name}</button>)}</div>
               <div className="sticker-library">{visibleStickerAssets.map((asset) => <button key={asset.id} onClick={() => addSticker(asset)} title={asset.name}>{asset.kind === 'image' ? <img src={asset.content} alt={asset.name} loading="lazy" /> : <span>{asset.content}</span>}</button>)}</div>
               {selectedSticker && <div className="sticker-tools">
-                <label>Kích thước<input type="range" min={.07} max={.3} step={.01} value={selectedSticker.size} onChange={(event) => updateSelectedSticker({ size: Number(event.target.value) })} /></label>
+                <label>Kích thước<input type="range" min={.06} max={.36} step={.01} value={selectedSticker.size} onChange={(event) => updateSelectedSticker({ size: Number(event.target.value) })} /></label>
                 <button onClick={() => updateSelectedSticker({ rotation: selectedSticker.rotation + 15 })} title="Xoay"><RotateCw size={16} /></button>
                 <button onClick={() => updateSelectedSticker({ flipX: !selectedSticker.flipX })} title="Lật ngang"><FlipHorizontal2 size={16} /></button>
                 <button onClick={() => updateSelectedSticker({ zIndex: stickers.length + 1 })} title="Đưa lên trước"><Layers size={16} /></button>
@@ -522,6 +530,7 @@ export default function App() {
               </div>}
               <div className="sticker-footer"><p className="hint">Chạm để thêm, kéo trực tiếp trên ảnh. Dùng phím mũi tên để căn chính xác.</p>{stickers.length > 0 && <button onClick={() => { setStickers([]); setSelectedStickerId(null) }}>Xóa tất cả</button>}</div>
             </section>
+            </div>}
 
             <section className="download-card"><div><ImageIcon /><span><strong>{layout.width} × {layout.height} px</strong><small>Ảnh chất lượng cao</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : 'Tải ảnh về'}</button></section>
 
@@ -544,13 +553,12 @@ export default function App() {
               </div>
             </div>
             <div
-              className={`preview-modal-image ${previewView.zoom > 1 ? 'can-pan' : ''}`}
+              className="preview-modal-image"
               tabIndex={0}
               aria-label="Vùng ảnh có thể kéo để xem chi tiết"
               onWheel={(event) => { event.preventDefault(); setReviewZoom(previewView.zoom + (event.deltaY < 0 ? .25 : -.25)) }}
               onDoubleClick={() => setPreviewView({ zoom: 1, x: 0, y: 0 })}
               onKeyDown={(event) => {
-                if (previewView.zoom <= 1) return
                 const step = event.shiftKey ? 80 : 30
                 const delta = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[event.key]
                 if (!delta) return
@@ -558,17 +566,18 @@ export default function App() {
                 setPreviewView((current) => ({ ...current, x: current.x + delta[0], y: current.y + delta[1] }))
               }}
               onPointerDown={(event) => {
-                if (previewView.zoom <= 1) return
+                if (event.pointerType === 'mouse' && event.button !== 0) return
+                event.preventDefault()
                 event.currentTarget.setPointerCapture(event.pointerId)
-                previewDragRef.current = { x: event.clientX, y: event.clientY, offsetX: previewView.x, offsetY: previewView.y }
+                previewDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, offsetX: previewView.x, offsetY: previewView.y }
               }}
               onPointerMove={(event) => {
                 const drag = previewDragRef.current
-                if (!drag) return
+                if (!drag || drag.pointerId !== event.pointerId) return
                 setPreviewView((current) => ({ ...current, x: drag.offsetX + event.clientX - drag.x, y: drag.offsetY + event.clientY - drag.y }))
               }}
-              onPointerUp={() => { previewDragRef.current = null }}
-              onPointerCancel={() => { previewDragRef.current = null }}
+              onPointerUp={(event) => { if (previewDragRef.current?.pointerId === event.pointerId) previewDragRef.current = null }}
+              onPointerCancel={(event) => { if (previewDragRef.current?.pointerId === event.pointerId) previewDragRef.current = null }}
             >
               <div className="preview-modal-transform" style={{ transform: `translate(${previewView.x}px, ${previewView.y}px) scale(${previewView.zoom})` }}><StripPreview session={session} /></div>
             </div>
