@@ -50,7 +50,7 @@ export const FILTERS: Array<{ id: FilterId; name: string; css: string }> = [
 
 const STICKER_GROUPS: Record<StickerCategory, Array<[string, string]>> = {
   cute: [['rabbit', '🐰'], ['bear', '🧸'], ['bow', '🎀'], ['heart', '💗'], ['chick', '🐥'], ['cat', '🐱'], ['flower-face', '🌸'], ['sparkle-heart', '💖']],
-  text: [['love', 'LOVE'], ['wow', 'WOW!'], ['xoxo', 'XOXO'], ['besties', 'BFF'], ['yes', 'YES!'], ['smile', 'SMILE']],
+  text: [],
   nature: [['clover', '🍀'], ['flower', '🌼'], ['cherry', '🍒'], ['leaf', '🌿'], ['sun', '☀️'], ['rainbow', '🌈'], ['cloud', '☁️'], ['butterfly', '🦋']],
   shapes: [['sparkle', '✦'], ['heart-outline', '♡'], ['star', '★'], ['circle', '●'], ['diamond', '◆'], ['burst', '✺'], ['moon', '☾'], ['flower-shape', '✿']],
   lucky: [['mushroom', '🍄'], ['dice', '🎲'], ['horseshoe', '🧲'], ['crystal', '💎'], ['key', '🗝️'], ['eight-ball', '🎱'], ['red-envelope', '🧧'], ['fortune', '🥠']],
@@ -60,7 +60,6 @@ const STICKER_GROUPS: Record<StickerCategory, Array<[string, string]>> = {
 export const STICKER_CATEGORIES: Array<{ id: 'all' | StickerCategory; name: string }> = [
   { id: 'all', name: 'Tất cả' },
   { id: 'cute', name: 'Dễ thương' },
-  { id: 'text', name: 'Chữ' },
   { id: 'nature', name: 'Thiên nhiên' },
   { id: 'shapes', name: 'Hình khối' },
   { id: 'lucky', name: 'May mắn' },

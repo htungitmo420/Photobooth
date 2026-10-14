@@ -1,5 +1,5 @@
 import {
-  Camera, Check, ChevronLeft, Copy, Download, FlipHorizontal2, Image as ImageIcon,
+  Camera, Check, ChevronLeft, ChevronRight, Copy, Download, FlipHorizontal2, Image as ImageIcon,
   Layers, LoaderCircle, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck, Sparkles,
   SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
@@ -80,9 +80,9 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewView, setPreviewView] = useState({ zoom: 1, x: 0, y: 0 })
+  const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null)
   const cancelRef = useRef(0)
   const frameInputRef = useRef<HTMLInputElement>(null)
-  const cameraDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const previewDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const camera = useCamera()
 
@@ -125,13 +125,16 @@ export default function App() {
   }, [step])
 
   useEffect(() => {
-    if (!previewOpen) return
+    if (!previewOpen && photoPreviewIndex === null) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPreviewOpen(false)
+      if (event.key === 'Escape') {
+        setPreviewOpen(false)
+        setPhotoPreviewIndex(null)
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [previewOpen])
+  }, [photoPreviewIndex, previewOpen])
 
   const openPreview = () => {
     setPreviewView({ zoom: 1, x: 0, y: 0 })
@@ -172,7 +175,7 @@ export default function App() {
 
   const visibleFrames = useMemo(() => frames.filter((item) => !item.layoutId || item.layoutId === layout.id), [frames, layout.id])
   const visibleStickerAssets = useMemo(
-    () => stickerAssets.filter((item) => stickerCategory === 'all' || item.category === stickerCategory),
+    () => stickerAssets.filter((item) => item.category !== 'text' && (stickerCategory === 'all' || item.category === stickerCategory)),
     [stickerAssets, stickerCategory],
   )
   const selectedSticker = stickers.find((item) => item.id === selectedStickerId) ?? null
@@ -183,6 +186,7 @@ export default function App() {
 
   const enterCamera = async (index: number | null = null) => {
     setNotice(null)
+    setPhotoPreviewIndex(null)
     setRetakeIndex(index)
     setStep('capture')
     await wait(50)
@@ -281,6 +285,7 @@ export default function App() {
     setSelectedStickerId(null)
     setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
     setPreviewOpen(false)
+    setPhotoPreviewIndex(null)
     setStep('setup')
   }
 
@@ -303,9 +308,18 @@ export default function App() {
     setStickers((current) => current.map((item) => item.id === id ? { ...item, x, y } : item))
   }
 
+  const updateSticker = (id: string, changes: Partial<BoothSticker>) => {
+    setStickers((current) => current.map((item) => item.id === id ? { ...item, ...changes } : item))
+  }
+
+  const removeSticker = (id: string) => {
+    setStickers((current) => current.filter((item) => item.id !== id))
+    setSelectedStickerId((current) => current === id ? null : current)
+  }
+
   const updateSelectedSticker = (changes: Partial<BoothSticker>) => {
     if (!selectedStickerId) return
-    setStickers((current) => current.map((item) => item.id === selectedStickerId ? { ...item, ...changes } : item))
+    updateSticker(selectedStickerId, changes)
   }
 
   const duplicateSelectedSticker = () => {
@@ -317,29 +331,12 @@ export default function App() {
 
   const removeSelectedSticker = () => {
     if (!selectedStickerId) return
-    setStickers((current) => current.filter((item) => item.id !== selectedStickerId))
-    setSelectedStickerId(null)
+    removeSticker(selectedStickerId)
   }
 
   const handleZoom = async (value: number) => {
     setCameraTransform((current) => ({ ...current, zoom: value }))
     setHardwareZoom(await camera.applyHardwareZoom(value))
-  }
-
-  const handleCameraPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (capturing || !camera.active) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    cameraDragRef.current = { x: event.clientX, y: event.clientY, offsetX: cameraTransform.offsetX, offsetY: cameraTransform.offsetY }
-  }
-
-  const handleCameraPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!cameraDragRef.current) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    setCameraTransform((current) => ({
-      ...current,
-      offsetX: Math.max(-1, Math.min(1, cameraDragRef.current!.offsetX - (event.clientX - cameraDragRef.current!.x) / rect.width * 2)),
-      offsetY: Math.max(-1, Math.min(1, cameraDragRef.current!.offsetY - (event.clientY - cameraDragRef.current!.y) / rect.height * 2)),
-    }))
   }
 
   const addLocalFrame = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -439,14 +436,7 @@ export default function App() {
       {step === 'capture' && (
         <section className="capture-layout">
           <div className="camera-card">
-            <div
-              className="camera-stage"
-              onPointerDown={handleCameraPointerDown}
-              onPointerMove={handleCameraPointerMove}
-              onPointerUp={() => { cameraDragRef.current = null }}
-              onPointerCancel={() => { cameraDragRef.current = null }}
-              onDoubleClick={() => setCameraTransform(DEFAULT_CAMERA_TRANSFORM)}
-            >
+            <div className="camera-stage">
               <video
                 ref={camera.videoRef}
                 muted
@@ -477,17 +467,6 @@ export default function App() {
             <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị. Giữ camera ngang tầm mắt để khung hình tự nhiên hơn.</p>
             {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => void camera.selectDevice(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
-            <div className="capture-frame-picker">
-              <div><strong>Chọn frame</strong><span>{frame.name}</span></div>
-              <div className="capture-frame-list">
-                {visibleFrames.map((item) => (
-                  <button key={item.id} className={frame.id === item.id ? 'selected' : ''} onClick={() => setFrame(item)} disabled={capturing} aria-label={`Chọn frame ${item.name}`}>
-                    {item.assetUrl ? <img src={item.assetUrl} alt="" /> : <i style={{ background: item.config.background, borderColor: item.config.accent }} />}
-                    <span>{item.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="photo-slots">
               {Array.from({ length: layout.slots }, (_, index) => (
                 <div key={index} className={photos[index] ? 'filled' : ''}>
@@ -505,10 +484,10 @@ export default function App() {
           <div className="preview-column">
             <p className="eyebrow">Bản ảnh của bạn</p>
             <div className="preview-stage">
-              <StripPreview session={session} interactive onMoveSticker={moveSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={openPreview} />
+              <StripPreview session={session} interactive onMoveSticker={moveSticker} onUpdateSticker={updateSticker} onRemoveSticker={removeSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={openPreview} />
             </div>
             <div className="retake-row">
-              {photos.map((photo, index) => <button key={photo.id} onClick={() => enterCamera(index)}><img src={photo.dataUrl} alt="" /><span><RotateCcw size={13} /> Ảnh {index + 1}</span></button>)}
+              {photos.map((photo, index) => <button key={photo.id} onClick={() => setPhotoPreviewIndex(index)}><img src={photo.dataUrl} alt="" /><span><ImageIcon size={13} /> Xem ảnh {index + 1}</span></button>)}
             </div>
           </div>
 
@@ -532,7 +511,7 @@ export default function App() {
             <section className="control-section sticker-section">
               <div className="section-line"><h3>Sticker</h3><span>{stickers.length}/20 · {remoteStickers ? 'Supabase' : 'Có sẵn'}</span></div>
               <div className="sticker-categories">{STICKER_CATEGORIES.map((category) => <button key={category.id} className={stickerCategory === category.id ? 'selected' : ''} onClick={() => setStickerCategory(category.id)}>{category.name}</button>)}</div>
-              <div className="sticker-library">{visibleStickerAssets.map((asset) => <button className={asset.category === 'text' ? 'text-sticker' : ''} key={asset.id} onClick={() => addSticker(asset)} title={asset.name}>{asset.kind === 'image' ? <img src={asset.content} alt={asset.name} loading="lazy" /> : <span>{asset.content}</span>}</button>)}</div>
+              <div className="sticker-library">{visibleStickerAssets.map((asset) => <button key={asset.id} onClick={() => addSticker(asset)} title={asset.name}>{asset.kind === 'image' ? <img src={asset.content} alt={asset.name} loading="lazy" /> : <span>{asset.content}</span>}</button>)}</div>
               {selectedSticker && <div className="sticker-tools">
                 <label>Kích thước<input type="range" min={.07} max={.3} step={.01} value={selectedSticker.size} onChange={(event) => updateSelectedSticker({ size: Number(event.target.value) })} /></label>
                 <button onClick={() => updateSelectedSticker({ rotation: selectedSticker.rotation + 15 })} title="Xoay"><RotateCw size={16} /></button>
@@ -594,6 +573,23 @@ export default function App() {
               <div className="preview-modal-transform" style={{ transform: `translate(${previewView.x}px, ${previewView.y}px) scale(${previewView.zoom})` }}><StripPreview session={session} /></div>
             </div>
             <p>Dùng nút +/− hoặc con lăn để zoom; kéo ảnh hay dùng phím mũi tên để di chuyển, nhấp đúp để đặt lại.</p>
+          </div>
+        </div>
+      )}
+
+      {photoPreviewIndex !== null && photos[photoPreviewIndex] && (
+        <div className="photo-review-modal" role="dialog" aria-modal="true" aria-labelledby="photo-review-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setPhotoPreviewIndex(null) }}>
+          <div className="photo-review-card">
+            <div className="photo-review-head">
+              <div><p className="eyebrow">Ảnh đã chụp</p><h2 id="photo-review-title">Ảnh {photoPreviewIndex + 1} / {photos.length}</h2></div>
+              <button autoFocus onClick={() => setPhotoPreviewIndex(null)} aria-label="Đóng xem ảnh"><X /></button>
+            </div>
+            <div className="photo-review-image"><img src={photos[photoPreviewIndex].dataUrl} alt={`Ảnh đã chụp ${photoPreviewIndex + 1}`} /></div>
+            <div className="photo-review-actions">
+              <button onClick={() => setPhotoPreviewIndex((current) => current === null ? null : Math.max(0, current - 1))} disabled={photoPreviewIndex === 0} aria-label="Ảnh trước"><ChevronLeft /></button>
+              <button className="retake-button" onClick={() => void enterCamera(photoPreviewIndex)}><RotateCcw size={17} /> Chụp lại ảnh {photoPreviewIndex + 1}</button>
+              <button onClick={() => setPhotoPreviewIndex((current) => current === null ? null : Math.min(photos.length - 1, current + 1))} disabled={photoPreviewIndex === photos.length - 1} aria-label="Ảnh sau"><ChevronRight /></button>
+            </div>
           </div>
         </div>
       )}

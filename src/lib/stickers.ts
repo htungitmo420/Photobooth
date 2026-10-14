@@ -19,7 +19,7 @@ export async function loadStickers(): Promise<{ stickers: StickerAsset[]; remote
     .order('sort_order')
 
   if (error || !data?.length) return { stickers: FALLBACK_STICKERS, remote: false }
-  const remote = (data as StickerRow[]).map((row) => ({
+  const remote = (data as StickerRow[]).filter((row) => row.category !== 'text').map((row) => ({
     id: row.id,
     name: row.name,
     category: row.category,

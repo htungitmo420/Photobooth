@@ -319,7 +319,9 @@ photobooth/
 - [x] Không vẽ viền preset bên dưới asset frame PNG/WebP, tránh hai lớp khung đè lên nhau.
 - [x] Khóa cuộn trang editor trên desktop, cuộn riêng panel công cụ và thêm preview lớn khi bấm vào dải ảnh; mobile giữ cuộn tự nhiên.
 - [x] Thêm zoom 75–400%, kéo để quan sát và đặt lại trong cửa sổ review ảnh hoàn chỉnh.
-- [x] Cho phép đổi frame ngay ở bước chụp; renderer tự nhận diện các ô trong suốt của frame nhập ngoài để ảnh không tràn hoặc chồng lên khung mặc định.
+- [x] Renderer tự nhận diện các ô trong suốt của frame nhập ngoài để ảnh không tràn hoặc chồng lên khung mặc định.
+- [x] Điều chỉnh lại luồng theo kiểm thử: khóa thao tác kéo camera ở bước 2, giữ chọn frame tại bước 3 và thêm gallery xem từng ảnh kèm chụp lại.
+- [x] Bỏ sticker chữ; thêm tay nắm resize cùng nút xoay/xóa trực tiếp trên sticker đang chọn.
 
 **Điều kiện xong:** preview, ảnh chụp và file xuất không có viền đen ngoài chủ ý; sticker thao tác trực tiếp và xuất đúng; flash có kết quả dự đoán được, tự hạ cấp an toàn khi phần cứng không hỗ trợ.
 
