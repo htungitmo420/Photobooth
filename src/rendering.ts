@@ -67,12 +67,24 @@ export async function composeStrip(session: BoothSession, scale = 1) {
   slots.forEach((slot, index) => {
     const image = images[index]
     if (!image) return
-    context.fillStyle = session.frame.config.accent
-    const border = Math.max(6, width * 0.012)
-    context.beginPath()
-    context.roundRect(slot.x - border, slot.y - border, slot.width + border * 2, slot.height + border * 2, session.frame.config.radius * scale)
-    context.fill()
-    drawCover(context, image, slot.x, slot.y, slot.width, slot.height, session.frame.config.radius * scale * 0.7, session.filter)
+    const hasOverlayAsset = Boolean(session.frame.assetUrl)
+    if (!hasOverlayAsset) {
+      context.fillStyle = session.frame.config.accent
+      const border = Math.max(6, width * 0.012)
+      context.beginPath()
+      context.roundRect(slot.x - border, slot.y - border, slot.width + border * 2, slot.height + border * 2, session.frame.config.radius * scale)
+      context.fill()
+    }
+    drawCover(
+      context,
+      image,
+      slot.x,
+      slot.y,
+      slot.width,
+      slot.height,
+      hasOverlayAsset ? 0 : session.frame.config.radius * scale * 0.7,
+      session.filter,
+    )
   })
 
   if (session.frame.assetUrl) {

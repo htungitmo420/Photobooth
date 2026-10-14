@@ -1,7 +1,7 @@
 import {
   Camera, Check, ChevronLeft, Copy, Download, FlipHorizontal2, Image as ImageIcon,
   Layers, LoaderCircle, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck, Sparkles,
-  SwitchCamera, Trash2, Volume2, VolumeX, Zap, ZoomIn,
+  SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
@@ -78,6 +78,7 @@ export default function App() {
   const [format, setFormat] = useState<'png' | 'jpeg'>('png')
   const [exporting, setExporting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const cancelRef = useRef(0)
   const frameInputRef = useRef<HTMLInputElement>(null)
   const cameraDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
@@ -115,6 +116,20 @@ export default function App() {
     setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
     setHardwareZoom(false)
   }, [camera.facing])
+
+  useEffect(() => {
+    document.body.classList.toggle('editor-mode', step === 'edit')
+    return () => document.body.classList.remove('editor-mode')
+  }, [step])
+
+  useEffect(() => {
+    if (!previewOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previewOpen])
 
   useEffect(() => {
     const onVisibility = () => {
@@ -253,6 +268,7 @@ export default function App() {
     setNotice(null)
     setSelectedStickerId(null)
     setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
+    setPreviewOpen(false)
     setStep('setup')
   }
 
@@ -465,7 +481,9 @@ export default function App() {
         <section className="editor-layout">
           <div className="preview-column">
             <p className="eyebrow">Bản ảnh của bạn</p>
-            <StripPreview session={session} interactive onMoveSticker={moveSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} />
+            <div className="preview-stage">
+              <StripPreview session={session} interactive onMoveSticker={moveSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={() => setPreviewOpen(true)} />
+            </div>
             <div className="retake-row">
               {photos.map((photo, index) => <button key={photo.id} onClick={() => enterCamera(index)}><img src={photo.dataUrl} alt="" /><span><RotateCcw size={13} /> Ảnh {index + 1}</span></button>)}
             </div>
@@ -508,6 +526,16 @@ export default function App() {
             <button className="text-button centered" onClick={reset}><RefreshCcw size={16} /> Chụp bộ mới</button>
           </div>
         </section>
+      )}
+
+      {previewOpen && (
+        <div className="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewOpen(false) }}>
+          <div className="preview-modal-card">
+            <div className="preview-modal-head"><div><p className="eyebrow">Bản hoàn chỉnh</p><h2 id="preview-title">Xem trước ảnh photobooth</h2></div><button autoFocus onClick={() => setPreviewOpen(false)} aria-label="Đóng xem trước"><X /></button></div>
+            <div className="preview-modal-image"><StripPreview session={session} /></div>
+            <p>Đây là bố cục sẽ được dùng khi tải PNG/JPG.</p>
+          </div>
+        </div>
       )}
     </main>
   )

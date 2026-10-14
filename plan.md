@@ -1,6 +1,6 @@
 # Kế hoạch xây dựng Photobooth
 
-Ngày lập: 14/10/2026. Tên repo: `photobooth`. Trạng thái: P0 đã được chấp nhận; P1 đã chốt phạm vi và chờ triển khai.
+Ngày lập: 14/10/2026. Tên repo: `photobooth`. Trạng thái: P0 đã được chấp nhận; P1 đã triển khai và còn cổng kiểm thử thiết bị thật.
 
 ### Trạng thái triển khai ngày 14/10/2026
 
@@ -8,6 +8,8 @@ Ngày lập: 14/10/2026. Tên repo: `photobooth`. Trạng thái: P0 đã đượ
 - Đã tích hợp camera, đếm ngược, chụp liên tiếp, hủy và chụp lại từng ảnh.
 - Đã có 6 bộ lọc, 6 frame, caption, ngày, sticker kéo thả và xuất PNG/JPEG.
 - Đã kết nối project Supabase `Photobooth`, tạo bảng `photobooth_frames`, bucket `photobooth-frames`, RLS và 6 frame khởi đầu.
+- Đã hoàn thiện P1: zoom/pan, countdown tùy chỉnh, flash thích ứng, camera ngoài, sticker nâng cao và frame cá nhân lưu trong trình duyệt.
+- Editor desktop vừa trong viewport, cuộn riêng vùng điều khiển; bấm vào dải ảnh mở bản preview lớn. Frame có asset riêng không bị chồng thêm viền preset.
 - Build production, kiểm tra desktop/mobile và security advisor đã đạt. Kiểm tra camera thật trên Android/iPhone vẫn thuộc bước nghiệm thu thiết bị.
 
 ## 1. Mục tiêu sản phẩm
@@ -314,6 +316,8 @@ photobooth/
 - [x] Thêm flash Tắt/Tự động/Bật, bộ đo sáng cục bộ, flash màn hình và torch khi được hỗ trợ; đảm bảo cleanup trên mọi đường thoát.
 - [ ] Kiểm thử camera nguồn 4:3, 16:9, 9:16; webcam tích hợp; ít nhất một webcam USB; môi trường sáng và tối; desktop và mobile thật.
 - [x] Thêm countdown 0–30 giây có ghi nhớ cục bộ và frame PNG/WebP lưu bằng IndexedDB.
+- [x] Không vẽ viền preset bên dưới asset frame PNG/WebP, tránh hai lớp khung đè lên nhau.
+- [x] Khóa cuộn trang editor trên desktop, cuộn riêng panel công cụ và thêm preview lớn khi bấm vào dải ảnh; mobile giữ cuộn tự nhiên.
 
 **Điều kiện xong:** preview, ảnh chụp và file xuất không có viền đen ngoài chủ ý; sticker thao tác trực tiếp và xuất đúng; flash có kết quả dự đoán được, tự hạ cấp an toàn khi phần cứng không hỗ trợ.
 

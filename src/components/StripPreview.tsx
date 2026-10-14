@@ -8,9 +8,10 @@ interface Props {
   onMoveSticker?: (id: string, x: number, y: number) => void
   selectedStickerId?: string | null
   onSelectSticker?: (id: string) => void
+  onPreview?: () => void
 }
 
-export function StripPreview({ session, interactive = false, onMoveSticker, selectedStickerId, onSelectSticker }: Props) {
+export function StripPreview({ session, interactive = false, onMoveSticker, selectedStickerId, onSelectSticker, onPreview }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(false)
@@ -48,7 +49,19 @@ export function StripPreview({ session, interactive = false, onMoveSticker, sele
 
   return (
     <div ref={wrapRef} className="strip-preview" style={{ aspectRatio: `${session.layout.width}/${session.layout.height}` }}>
-      <canvas ref={canvasRef} aria-label="Bản xem trước dải ảnh" />
+      <canvas
+        ref={canvasRef}
+        aria-label={onPreview ? 'Mở bản xem trước dải ảnh' : 'Bản xem trước dải ảnh'}
+        role={onPreview ? 'button' : 'img'}
+        tabIndex={onPreview ? 0 : undefined}
+        onClick={onPreview}
+        onKeyDown={(event) => {
+          if (onPreview && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault()
+            onPreview()
+          }
+        }}
+      />
       {rendering && <span className="render-badge">Đang cập nhật…</span>}
       {interactive && session.stickers.map((sticker) => (
         <button
