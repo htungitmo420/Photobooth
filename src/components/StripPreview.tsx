@@ -48,7 +48,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, sele
   }
 
   return (
-    <div ref={wrapRef} className="strip-preview" style={{ aspectRatio: `${session.layout.width}/${session.layout.height}` }}>
+    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''}`} style={{ aspectRatio: `${session.layout.width}/${session.layout.height}` }}>
       <canvas
         ref={canvasRef}
         aria-label={onPreview ? 'Mở bản xem trước dải ảnh' : 'Bản xem trước dải ảnh'}

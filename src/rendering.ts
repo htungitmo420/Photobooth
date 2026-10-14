@@ -93,7 +93,6 @@ export async function composeStrip(session: BoothSession, scale = 1) {
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Không thể tạo canvas xuất ảnh.')
 
-  paintBackground(context, width, height, session.frame.config.background)
   const [images, overlay] = await Promise.all([
     Promise.all(session.photos.map((photo) => loadImage(photo.dataUrl))),
     session.frame.assetUrl ? loadImage(session.frame.assetUrl).catch(() => null) : Promise.resolve(null),
@@ -109,6 +108,8 @@ export async function composeStrip(session: BoothSession, scale = 1) {
         height: slot.height / frameAnalysis.height * height,
       }))
     : getLayoutSlots(session.layout, width, height)
+
+  if (!overlay || !frameAnalysis) paintBackground(context, width, height, session.frame.config.background)
 
   slots.forEach((slot, index) => {
     const image = images[index]
@@ -184,7 +185,20 @@ export async function composeStrip(session: BoothSession, scale = 1) {
 }
 
 export async function downloadStrip(session: BoothSession, format: 'png' | 'jpeg') {
-  const canvas = await composeStrip(session)
+  const rendered = await composeStrip(session)
+  const canvas = format === 'jpeg' && session.frame.assetUrl
+    ? (() => {
+        const flattened = document.createElement('canvas')
+        flattened.width = rendered.width
+        flattened.height = rendered.height
+        const context = flattened.getContext('2d')
+        if (!context) return rendered
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, flattened.width, flattened.height)
+        context.drawImage(rendered, 0, 0)
+        return flattened
+      })()
+    : rendered
   const type = format === 'png' ? 'image/png' : 'image/jpeg'
   const quality = format === 'jpeg' ? 0.92 : undefined
   const blob = await new Promise<Blob>((resolve, reject) => {

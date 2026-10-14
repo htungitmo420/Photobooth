@@ -566,8 +566,18 @@ export default function App() {
             </div>
             <div
               className={`preview-modal-image ${previewView.zoom > 1 ? 'can-pan' : ''}`}
+              tabIndex={0}
+              aria-label="Vùng ảnh có thể kéo để xem chi tiết"
               onWheel={(event) => { event.preventDefault(); setReviewZoom(previewView.zoom + (event.deltaY < 0 ? .25 : -.25)) }}
               onDoubleClick={() => setPreviewView({ zoom: 1, x: 0, y: 0 })}
+              onKeyDown={(event) => {
+                if (previewView.zoom <= 1) return
+                const step = event.shiftKey ? 80 : 30
+                const delta = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[event.key]
+                if (!delta) return
+                event.preventDefault()
+                setPreviewView((current) => ({ ...current, x: current.x + delta[0], y: current.y + delta[1] }))
+              }}
               onPointerDown={(event) => {
                 if (previewView.zoom <= 1) return
                 event.currentTarget.setPointerCapture(event.pointerId)
@@ -583,7 +593,7 @@ export default function App() {
             >
               <div className="preview-modal-transform" style={{ transform: `translate(${previewView.x}px, ${previewView.y}px) scale(${previewView.zoom})` }}><StripPreview session={session} /></div>
             </div>
-            <p>Dùng nút +/− hoặc con lăn để zoom; kéo ảnh để xem chi tiết và nhấp đúp để đặt lại.</p>
+            <p>Dùng nút +/− hoặc con lăn để zoom; kéo ảnh hay dùng phím mũi tên để di chuyển, nhấp đúp để đặt lại.</p>
           </div>
         </div>
       )}
