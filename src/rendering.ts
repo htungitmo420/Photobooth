@@ -1,6 +1,15 @@
 import { FILTERS } from './presets'
 import { getLayoutSlots } from './layoutGeometry'
+import { detectTransparentSlots } from './frameGeometry'
 import type { BoothSession, FilterId } from './types'
+
+interface FrameAnalysis {
+  width: number
+  height: number
+  slots: ReturnType<typeof getLayoutSlots>
+}
+
+const frameAnalysisCache = new Map<string, Promise<FrameAnalysis | null>>()
 
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -51,6 +60,30 @@ function paintBackground(context: CanvasRenderingContext2D, width: number, heigh
   context.fillRect(0, 0, width, height)
 }
 
+async function analyzeFrame(source: string, image: HTMLImageElement, expectedSlots: number) {
+  const cached = frameAnalysisCache.get(source)
+  if (cached) return cached
+  const analysis = Promise.resolve().then(() => {
+    const ratio = Math.min(1, 420 / Math.max(image.naturalWidth, image.naturalHeight))
+    const width = Math.max(1, Math.round(image.naturalWidth * ratio))
+    const height = Math.max(1, Math.round(image.naturalHeight * ratio))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) return null
+    context.drawImage(image, 0, 0, width, height)
+    try {
+      const slots = detectTransparentSlots(context.getImageData(0, 0, width, height).data, width, height, expectedSlots)
+      return slots.length === expectedSlots ? { width, height, slots } : null
+    } catch {
+      return null
+    }
+  })
+  frameAnalysisCache.set(source, analysis)
+  return analysis
+}
+
 export async function composeStrip(session: BoothSession, scale = 1) {
   const width = Math.round(session.layout.width * scale)
   const height = Math.round(session.layout.height * scale)
@@ -61,8 +94,21 @@ export async function composeStrip(session: BoothSession, scale = 1) {
   if (!context) throw new Error('Không thể tạo canvas xuất ảnh.')
 
   paintBackground(context, width, height, session.frame.config.background)
-  const slots = getLayoutSlots(session.layout, width, height)
-  const images = await Promise.all(session.photos.map((photo) => loadImage(photo.dataUrl)))
+  const [images, overlay] = await Promise.all([
+    Promise.all(session.photos.map((photo) => loadImage(photo.dataUrl))),
+    session.frame.assetUrl ? loadImage(session.frame.assetUrl).catch(() => null) : Promise.resolve(null),
+  ])
+  const frameAnalysis = overlay && session.frame.assetUrl
+    ? await analyzeFrame(session.frame.assetUrl, overlay, session.layout.slots)
+    : null
+  const slots = frameAnalysis
+    ? frameAnalysis.slots.map((slot) => ({
+        x: slot.x / frameAnalysis.width * width,
+        y: slot.y / frameAnalysis.height * height,
+        width: slot.width / frameAnalysis.width * width,
+        height: slot.height / frameAnalysis.height * height,
+      }))
+    : getLayoutSlots(session.layout, width, height)
 
   slots.forEach((slot, index) => {
     const image = images[index]
@@ -87,33 +133,28 @@ export async function composeStrip(session: BoothSession, scale = 1) {
     )
   })
 
-  if (session.frame.assetUrl) {
-    try {
-      const overlay = await loadImage(session.frame.assetUrl)
-      context.drawImage(overlay, 0, 0, width, height)
-    } catch {
-      // Frame metadata still provides a usable color treatment if an asset fails.
+  if (overlay) context.drawImage(overlay, 0, 0, width, height)
+
+  if (!overlay) {
+    context.fillStyle = session.frame.config.textColor
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    const captionSize = Math.max(24, width * 0.044)
+    context.font = `700 ${captionSize}px system-ui, sans-serif`
+    const footerY = height - height * (session.layout.kind === 'grid' ? 0.085 : 0.065)
+    const caption = session.caption.trim() || 'KHOẢNH KHẮC'
+    context.fillText(caption.slice(0, 60), width / 2, footerY - (session.showDate ? captionSize * 0.45 : 0), width * 0.82)
+
+    if (session.showDate) {
+      context.globalAlpha = 0.72
+      context.font = `500 ${Math.max(18, width * 0.022)}px system-ui, sans-serif`
+      context.fillText(
+        new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(session.date),
+        width / 2,
+        footerY + captionSize * 0.62,
+      )
+      context.globalAlpha = 1
     }
-  }
-
-  context.fillStyle = session.frame.config.textColor
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  const captionSize = Math.max(24, width * 0.044)
-  context.font = `700 ${captionSize}px system-ui, sans-serif`
-  const footerY = height - height * (session.layout.kind === 'grid' ? 0.085 : 0.065)
-  const caption = session.caption.trim() || 'KHOẢNH KHẮC'
-  context.fillText(caption.slice(0, 60), width / 2, footerY - (session.showDate ? captionSize * 0.45 : 0), width * 0.82)
-
-  if (session.showDate) {
-    context.globalAlpha = 0.72
-    context.font = `500 ${Math.max(18, width * 0.022)}px system-ui, sans-serif`
-    context.fillText(
-      new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(session.date),
-      width / 2,
-      footerY + captionSize * 0.62,
-    )
-    context.globalAlpha = 1
   }
 
   const imageStickers = await Promise.all(session.stickers.map(async (sticker) => {

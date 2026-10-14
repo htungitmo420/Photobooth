@@ -1,7 +1,7 @@
 import {
   Camera, Check, ChevronLeft, Copy, Download, FlipHorizontal2, Image as ImageIcon,
   Layers, LoaderCircle, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck, Sparkles,
-  SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn,
+  SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
@@ -79,9 +79,11 @@ export default function App() {
   const [exporting, setExporting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewView, setPreviewView] = useState({ zoom: 1, x: 0, y: 0 })
   const cancelRef = useRef(0)
   const frameInputRef = useRef<HTMLInputElement>(null)
   const cameraDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
+  const previewDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const camera = useCamera()
 
   useEffect(() => {
@@ -130,6 +132,16 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [previewOpen])
+
+  const openPreview = () => {
+    setPreviewView({ zoom: 1, x: 0, y: 0 })
+    setPreviewOpen(true)
+  }
+
+  const setReviewZoom = (zoom: number) => {
+    const next = Math.min(4, Math.max(0.75, zoom))
+    setPreviewView((current) => next <= 1 ? { zoom: next, x: 0, y: 0 } : { ...current, zoom: next })
+  }
 
   useEffect(() => {
     const onVisibility = () => {
@@ -465,6 +477,17 @@ export default function App() {
             <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị. Giữ camera ngang tầm mắt để khung hình tự nhiên hơn.</p>
             {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => void camera.selectDevice(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
+            <div className="capture-frame-picker">
+              <div><strong>Chọn frame</strong><span>{frame.name}</span></div>
+              <div className="capture-frame-list">
+                {visibleFrames.map((item) => (
+                  <button key={item.id} className={frame.id === item.id ? 'selected' : ''} onClick={() => setFrame(item)} disabled={capturing} aria-label={`Chọn frame ${item.name}`}>
+                    {item.assetUrl ? <img src={item.assetUrl} alt="" /> : <i style={{ background: item.config.background, borderColor: item.config.accent }} />}
+                    <span>{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="photo-slots">
               {Array.from({ length: layout.slots }, (_, index) => (
                 <div key={index} className={photos[index] ? 'filled' : ''}>
@@ -482,7 +505,7 @@ export default function App() {
           <div className="preview-column">
             <p className="eyebrow">Bản ảnh của bạn</p>
             <div className="preview-stage">
-              <StripPreview session={session} interactive onMoveSticker={moveSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={() => setPreviewOpen(true)} />
+              <StripPreview session={session} interactive onMoveSticker={moveSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={openPreview} />
             </div>
             <div className="retake-row">
               {photos.map((photo, index) => <button key={photo.id} onClick={() => enterCamera(index)}><img src={photo.dataUrl} alt="" /><span><RotateCcw size={13} /> Ảnh {index + 1}</span></button>)}
@@ -504,7 +527,7 @@ export default function App() {
               <p className="hint">PNG/WebP tối đa 5 MB, đúng tỷ lệ bố cục hiện tại. Frame được lưu riêng trong trình duyệt này.</p>
             </section>
 
-            <section className="control-section"><h3>Lời nhắn</h3><div className="caption-field"><input value={caption} maxLength={60} onChange={(event) => setCaption(event.target.value)} placeholder="KHOẢNH KHẮC" /><span>{caption.length}/60</span></div><label className="check-line"><input type="checkbox" checked={showDate} onChange={(event) => setShowDate(event.target.checked)} /> Hiện ngày chụp</label></section>
+            <section className="control-section"><h3>Lời nhắn</h3><div className="caption-field"><input value={caption} disabled={Boolean(frame.assetUrl)} maxLength={60} onChange={(event) => setCaption(event.target.value)} placeholder="KHOẢNH KHẮC" /><span>{caption.length}/60</span></div><label className="check-line"><input type="checkbox" disabled={Boolean(frame.assetUrl)} checked={showDate} onChange={(event) => setShowDate(event.target.checked)} /> Hiện ngày chụp</label>{frame.assetUrl && <p className="hint">Frame này dùng thiết kế footer có sẵn nên lời nhắn và ngày mặc định được ẩn.</p>}</section>
 
             <section className="control-section sticker-section">
               <div className="section-line"><h3>Sticker</h3><span>{stickers.length}/20 · {remoteStickers ? 'Supabase' : 'Có sẵn'}</span></div>
@@ -531,9 +554,36 @@ export default function App() {
       {previewOpen && (
         <div className="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewOpen(false) }}>
           <div className="preview-modal-card">
-            <div className="preview-modal-head"><div><p className="eyebrow">Bản hoàn chỉnh</p><h2 id="preview-title">Xem trước ảnh photobooth</h2></div><button autoFocus onClick={() => setPreviewOpen(false)} aria-label="Đóng xem trước"><X /></button></div>
-            <div className="preview-modal-image"><StripPreview session={session} /></div>
-            <p>Đây là bố cục sẽ được dùng khi tải PNG/JPG.</p>
+            <div className="preview-modal-head">
+              <div><p className="eyebrow">Bản hoàn chỉnh</p><h2 id="preview-title">Xem trước ảnh photobooth</h2></div>
+              <div className="preview-modal-actions">
+                <button onClick={() => setReviewZoom(previewView.zoom - .25)} disabled={previewView.zoom <= .75} aria-label="Thu nhỏ"><ZoomOut /></button>
+                <output aria-live="polite">{Math.round(previewView.zoom * 100)}%</output>
+                <button onClick={() => setReviewZoom(previewView.zoom + .25)} disabled={previewView.zoom >= 4} aria-label="Phóng to"><ZoomIn /></button>
+                <button onClick={() => setPreviewView({ zoom: 1, x: 0, y: 0 })} aria-label="Đặt lại zoom"><RotateCcw /></button>
+                <button autoFocus onClick={() => setPreviewOpen(false)} aria-label="Đóng xem trước"><X /></button>
+              </div>
+            </div>
+            <div
+              className={`preview-modal-image ${previewView.zoom > 1 ? 'can-pan' : ''}`}
+              onWheel={(event) => { event.preventDefault(); setReviewZoom(previewView.zoom + (event.deltaY < 0 ? .25 : -.25)) }}
+              onDoubleClick={() => setPreviewView({ zoom: 1, x: 0, y: 0 })}
+              onPointerDown={(event) => {
+                if (previewView.zoom <= 1) return
+                event.currentTarget.setPointerCapture(event.pointerId)
+                previewDragRef.current = { x: event.clientX, y: event.clientY, offsetX: previewView.x, offsetY: previewView.y }
+              }}
+              onPointerMove={(event) => {
+                const drag = previewDragRef.current
+                if (!drag) return
+                setPreviewView((current) => ({ ...current, x: drag.offsetX + event.clientX - drag.x, y: drag.offsetY + event.clientY - drag.y }))
+              }}
+              onPointerUp={() => { previewDragRef.current = null }}
+              onPointerCancel={() => { previewDragRef.current = null }}
+            >
+              <div className="preview-modal-transform" style={{ transform: `translate(${previewView.x}px, ${previewView.y}px) scale(${previewView.zoom})` }}><StripPreview session={session} /></div>
+            </div>
+            <p>Dùng nút +/− hoặc con lăn để zoom; kéo ảnh để xem chi tiết và nhấp đúp để đặt lại.</p>
           </div>
         </div>
       )}
