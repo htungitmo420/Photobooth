@@ -1,9 +1,9 @@
 import {
   Camera, Check, ChevronLeft, ChevronRight, Copy, Download, FlipHorizontal2, Image as ImageIcon,
-  Layers, LoaderCircle, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck, Sparkles,
+  Layers, LoaderCircle, Pause, Play, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck, Sparkles,
   SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
 import { StripPreview } from './components/StripPreview'
 import { useCamera } from './hooks/useCamera'
@@ -59,12 +59,12 @@ export default function App() {
   const [countdownSeconds, setCountdownSeconds] = useState(getSavedCountdown)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [capturing, setCapturing] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [mirror, setMirror] = useState(true)
   const [sound, setSound] = useState(false)
   const [screenFlash, setScreenFlash] = useState(false)
   const [flashMode, setFlashMode] = useState<FlashMode>('auto')
   const [cameraTransform, setCameraTransform] = useState<CameraTransform>(DEFAULT_CAMERA_TRANSFORM)
-  const [hardwareZoom, setHardwareZoom] = useState(false)
   const [retakeIndex, setRetakeIndex] = useState<number | null>(null)
   const [filter, setFilter] = useState<FilterId>('original')
   const [caption, setCaption] = useState('KHOẢNH KHẮC')
@@ -78,14 +78,25 @@ export default function App() {
   const [sessionDate, setSessionDate] = useState(() => new Date())
   const [format, setFormat] = useState<'png' | 'jpeg'>('png')
   const [exporting, setExporting] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notices, setNotices] = useState<Array<{ id: string; message: string }>>([])
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewView, setPreviewView] = useState({ zoom: 1, x: 0, y: 0 })
   const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null)
   const cancelRef = useRef(0)
+  const pausedRef = useRef(false)
   const frameInputRef = useRef<HTMLInputElement>(null)
   const previewDragRef = useRef<{ pointerId: number; x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const camera = useCamera()
+
+  const setNotice = useCallback((message: string | null) => {
+    if (message === null) {
+      setNotices([])
+      return
+    }
+    const id = makeId('notice')
+    setNotices((current) => [{ id, message }, ...current].slice(0, 4))
+    window.setTimeout(() => setNotices((current) => current.filter((item) => item.id !== id)), 5500)
+  }, [])
 
   useEffect(() => {
     let disposed = false
@@ -117,7 +128,6 @@ export default function App() {
   useEffect(() => {
     if (camera.facing === 'environment') setMirror(false)
     setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
-    setHardwareZoom(false)
   }, [camera.facing])
 
   useEffect(() => {
@@ -152,6 +162,8 @@ export default function App() {
       if (document.hidden && step === 'capture') {
         cancelRef.current += 1
         setCapturing(false)
+        pausedRef.current = false
+        setPaused(false)
         setCountdown(null)
         setScreenFlash(false)
         void camera.setTorch(false)
@@ -187,6 +199,8 @@ export default function App() {
 
   const enterCamera = async (index: number | null = null) => {
     setNotice(null)
+    pausedRef.current = false
+    setPaused(false)
     setPhotoPreviewIndex(null)
     setRetakeIndex(index)
     setStep('capture')
@@ -194,15 +208,31 @@ export default function App() {
     await camera.start()
   }
 
+  const waitDuringCapture = async (duration: number, token: number) => {
+    let remaining = duration
+    while (remaining > 0 || pausedRef.current) {
+      if (token !== cancelRef.current) return false
+      if (pausedRef.current) {
+        await wait(50)
+        continue
+      }
+      const slice = Math.min(50, remaining)
+      await wait(slice)
+      remaining -= slice
+    }
+    return token === cancelRef.current
+  }
+
   const runCountdown = async (token: number) => {
     for (let remaining = countdownSeconds; remaining > 0; remaining -= 1) {
       if (token !== cancelRef.current) return false
+      if (!await waitDuringCapture(0, token)) return false
       setCountdown(remaining)
       playTone(sound)
-      await wait(1000)
+      if (!await waitDuringCapture(1000, token)) return false
     }
     setCountdown(null)
-    return token === cancelRef.current
+    return waitDuringCapture(0, token)
   }
 
   const takeFrame = async (token: number) => {
@@ -212,11 +242,21 @@ export default function App() {
     const needsFlash = flashMode === 'on' || (flashMode === 'auto' && brightness !== null && brightness < 0.3)
     let torchOn = false
     try {
-      if (needsFlash) torchOn = await camera.setTorch(true)
-      if (needsFlash && !torchOn) setScreenFlash(true)
-      if (needsFlash) await wait(torchOn ? 180 : 240)
-      const effectiveTransform = hardwareZoom ? { ...cameraTransform, zoom: 1 } : cameraTransform
-      const dataUrl = camera.capture(mirror, effectiveTransform)
+      if (needsFlash) {
+        do {
+          if (!await waitDuringCapture(0, token)) return null
+          torchOn = await camera.setTorch(true)
+          if (!torchOn) setScreenFlash(true)
+          await wait(torchOn ? 180 : 240)
+          if (pausedRef.current) {
+            setScreenFlash(false)
+            if (torchOn) await camera.setTorch(false)
+            torchOn = false
+          }
+        } while (pausedRef.current)
+      }
+      if (!await waitDuringCapture(0, token)) return null
+      const dataUrl = camera.capture(mirror, cameraTransform)
       if (!dataUrl) throw new Error('Camera chưa sẵn sàng. Hãy thử lại.')
       playTone(sound, 260)
       return { id: makeId('photo'), dataUrl } satisfies CapturedPhoto
@@ -231,6 +271,8 @@ export default function App() {
     const token = cancelRef.current + 1
     cancelRef.current = token
     setCapturing(true)
+    pausedRef.current = false
+    setPaused(false)
     setNotice(null)
     try {
       if (retakeIndex !== null) {
@@ -250,7 +292,7 @@ export default function App() {
         if (!photo || token !== cancelRef.current) return
         nextPhotos.push(photo)
         setPhotos((current) => [...current, photo])
-        if (index < layout.slots - 1) await wait(800)
+        if (index < layout.slots - 1 && !await waitDuringCapture(800, token)) return
       }
       camera.stop()
       setStep('edit')
@@ -260,6 +302,8 @@ export default function App() {
       if (token === cancelRef.current) {
         setCapturing(false)
         setCountdown(null)
+        pausedRef.current = false
+        setPaused(false)
       }
     }
   }
@@ -268,13 +312,25 @@ export default function App() {
     cancelRef.current += 1
     setCapturing(false)
     setCountdown(null)
+    pausedRef.current = false
+    setPaused(false)
     setScreenFlash(false)
     void camera.setTorch(false)
     setNotice(photos.length ? 'Đã giữ các ảnh vừa chụp. Bạn có thể chụp tiếp.' : 'Đã hủy lượt chụp.')
   }
 
+  const togglePause = () => {
+    if (!capturing) return
+    const next = !pausedRef.current
+    pausedRef.current = next
+    setPaused(next)
+    setNotice(next ? 'Đã tạm dừng. Ấn tiếp tục khi bạn sẵn sàng.' : 'Đang tiếp tục chuỗi chụp.')
+  }
+
   const reset = () => {
     cancelRef.current += 1
+    pausedRef.current = false
+    setPaused(false)
     camera.stop()
     setPhotos([])
     setStickers([])
@@ -335,9 +391,8 @@ export default function App() {
     removeSticker(selectedStickerId)
   }
 
-  const handleZoom = async (value: number) => {
+  const handleZoom = (value: number) => {
     setCameraTransform((current) => ({ ...current, zoom: value }))
-    setHardwareZoom(await camera.applyHardwareZoom(value))
   }
 
   const addLocalFrame = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,7 +453,9 @@ export default function App() {
         ))}
       </nav>
 
-      {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice(null)} aria-label="Đóng">×</button></div>}
+      {notices.length > 0 && <div className="notice-stack" aria-live="polite" aria-relevant="additions">
+        {notices.map((item) => <div className="notice" role="status" key={item.id}>{item.message}<button onClick={() => setNotices((current) => current.filter((notice) => notice.id !== item.id))} aria-label="Đóng thông báo">×</button></div>)}
+      </div>}
 
       {step === 'setup' && (
         <section className="setup-grid">
@@ -443,21 +500,23 @@ export default function App() {
                 muted
                 playsInline
                 style={{
-                  transform: `${mirror ? 'scaleX(-1) ' : ''}scale(${hardwareZoom ? 1 : cameraTransform.zoom}) translate(${-cameraTransform.offsetX * 8}%, ${-cameraTransform.offsetY * 8}%)`,
+                  transform: `${mirror ? 'scaleX(-1) ' : ''}scale(${cameraTransform.zoom}) translate(${-cameraTransform.offsetX * 8}%, ${-cameraTransform.offsetY * 8}%)`,
                 }}
               />
               {!camera.active && <div className="camera-placeholder">{camera.loading ? <LoaderCircle className="spin" /> : <Camera />}<p>{camera.loading ? 'Đang mở camera…' : camera.error ?? 'Camera đang tắt'}</p>{!camera.loading && <button onClick={() => camera.start()}>Thử lại</button>}</div>}
               {countdown !== null && <div className="countdown"><span>{countdown}</span><small>Chuẩn bị nhé!</small></div>}
+              {paused && <div className="pause-overlay"><Pause size={42} /><strong>Đã tạm dừng</strong><span>Ấn Tiếp tục để chụp tiếp.</span></div>}
               {screenFlash && <div className="flash" />}
               <div className="camera-progress">{retakeIndex !== null ? `Chụp lại ảnh ${retakeIndex + 1}` : `Ảnh ${Math.min(photos.length + 1, layout.slots)} / ${layout.slots}`}</div>
             </div>
             <div className="camera-actions">
               <button className="icon-button" onClick={() => setMirror((value) => !value)} disabled={capturing} aria-label="Lật ảnh"><FlipHorizontal2 /></button>
               <button className="shutter" onClick={startCapture} disabled={!camera.active || capturing} aria-label="Bắt đầu chụp"><span /></button>
+              {capturing && <button className="icon-button pause-button" onClick={togglePause} aria-label={paused ? 'Tiếp tục chụp' : 'Tạm dừng chụp'} title={paused ? 'Tiếp tục chụp' : 'Tạm dừng chụp'}>{paused ? <Play /> : <Pause />}</button>}
               <button className="icon-button" onClick={() => camera.switchFacing()} disabled={capturing} aria-label="Đổi camera"><SwitchCamera /></button>
             </div>
             <div className="camera-tools">
-              <label><ZoomIn size={15} /><input aria-label="Zoom camera" type="range" min={1} max={camera.zoomRange ? Math.min(3, camera.zoomRange.max) : 3} step={camera.zoomRange?.step ?? .05} value={cameraTransform.zoom} onChange={(event) => void handleZoom(Number(event.target.value))} /><span>{cameraTransform.zoom.toFixed(1)}×</span></label>
+              <label><ZoomIn size={15} /><input aria-label="Zoom camera" type="range" min={1} max={3} step={.05} value={cameraTransform.zoom} onChange={(event) => handleZoom(Number(event.target.value))} /><span>{cameraTransform.zoom.toFixed(1)}×</span></label>
               <div className="flash-modes">{(['off', 'auto', 'on'] as FlashMode[]).map((mode) => <button key={mode} className={flashMode === mode ? 'selected' : ''} onClick={() => setFlashMode(mode)} disabled={capturing}>{mode === 'off' ? 'Tắt' : mode === 'auto' ? 'Auto' : 'Bật'}</button>)}</div>
             </div>
             {capturing && <button className="cancel-button" onClick={cancelCapture}>Hủy chuỗi chụp</button>}

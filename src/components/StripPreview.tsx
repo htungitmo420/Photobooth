@@ -1,5 +1,5 @@
 import { Maximize2, RotateCw, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { composeStrip } from '../rendering'
 import type { BoothSession } from '../types'
 
@@ -18,6 +18,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(false)
+  const [fitSize, setFitSize] = useState<{ width: number; height: number } | null>(null)
   const renderStickers = interactive ? null : session.stickers
   const renderSession = useMemo(
     () => interactive ? { ...session, stickers: [] } : session,
@@ -37,6 +38,24 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
       .finally(() => !cancelled && setRendering(false))
     return () => { cancelled = true }
   }, [renderSession])
+
+  useLayoutEffect(() => {
+    const parent = wrapRef.current?.parentElement
+    if (!parent) return
+    const fit = () => {
+      const sideSpace = interactive ? Math.min(64, Math.max(24, parent.clientWidth * .14)) : 12
+      const verticalSpace = interactive ? Math.min(38, parent.clientHeight * .07) : 12
+      const scale = Math.min(
+        Math.max(1, parent.clientWidth - sideSpace * 2) / session.layout.width,
+        Math.max(1, parent.clientHeight - verticalSpace * 2) / session.layout.height,
+      )
+      setFitSize({ width: session.layout.width * scale, height: session.layout.height * scale })
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(parent)
+    return () => observer.disconnect()
+  }, [interactive, session.layout.width, session.layout.height])
 
   const moveSticker = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
     if (!interactive || !onMoveSticker || !wrapRef.current) return
@@ -118,7 +137,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
   }
 
   return (
-    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''} ${interactive ? 'interactive' : ''}`} style={{ aspectRatio: `${session.layout.width}/${session.layout.height}` }}>
+    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''} ${interactive ? 'interactive' : ''}`} style={{ aspectRatio: `${session.layout.width}/${session.layout.height}`, ...(fitSize ?? {}) }}>
       <canvas
         ref={canvasRef}
         aria-label={onPreview ? 'Mở bản xem trước dải ảnh' : 'Bản xem trước dải ảnh'}
