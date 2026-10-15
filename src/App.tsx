@@ -1,6 +1,6 @@
 import {
   Camera, Check, ChevronLeft, ChevronRight, Copy, Download, FlipHorizontal2, Image as ImageIcon,
-  Layers, LoaderCircle, Pause, Play, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck, Sparkles,
+  Layers, LoaderCircle, Pause, Play, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck,
   SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -552,7 +552,7 @@ export default function App() {
           </div>
 
           <div className="editor-panel">
-            <div className="editor-title"><div><p className="eyebrow">Bước cuối</p><h1>Thêm chút dấu ấn</h1></div><Sparkles /></div>
+            <div className="editor-title"><div><p className="eyebrow">Bước cuối</p><h1>Thêm chút dấu ấn</h1></div><button className="text-button new-session-button" onClick={reset} aria-label="Chụp bộ mới"><RefreshCcw size={16} /><span>Chụp bộ mới</span></button></div>
             <div className="editor-tabs" role="group" aria-label="Tùy chỉnh ảnh">
               <button aria-pressed={editorPanelTab === 'design'} className={editorPanelTab === 'design' ? 'selected' : ''} onClick={() => setEditorPanelTab('design')}>Bộ lọc & khung</button>
               <button aria-pressed={editorPanelTab === 'stickers'} className={editorPanelTab === 'stickers' ? 'selected' : ''} onClick={() => setEditorPanelTab('stickers')}>Sticker {stickers.length > 0 && `(${stickers.length})`}</button>
@@ -593,7 +593,6 @@ export default function App() {
 
             <section className="download-card"><div><ImageIcon /><span><strong>{layout.width} × {layout.height} px</strong><small>Ảnh chất lượng cao</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : 'Tải ảnh về'}</button></section>
 
-            <button className="text-button centered" onClick={reset}><RefreshCcw size={16} /> Chụp bộ mới</button>
           </div>
         </section>
       )}
