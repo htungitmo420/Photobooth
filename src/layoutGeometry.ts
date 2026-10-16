@@ -11,6 +11,17 @@ export function getLayoutSlots(layout: BoothLayout, width: number, height: numbe
   const pad = width * 0.065
   const footer = layout.kind === 'grid' ? height * 0.16 : height * 0.12
 
+  if (layout.kind === 'polaroid') {
+    const polaroidPad = width * 0.075
+    const photoSize = width - polaroidPad * 2
+    return [{
+      x: polaroidPad,
+      y: polaroidPad,
+      width: photoSize,
+      height: photoSize,
+    }]
+  }
+
   if (layout.kind === 'grid') {
     const gap = width * 0.035
     const cellWidth = (width - pad * 2 - gap) / 2

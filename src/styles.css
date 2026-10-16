@@ -68,7 +68,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .panel-heading h2, .panel-heading p { margin: 0; }
 .panel-heading h2 { font-family: 'Playfair Display', serif; font-size: 25px; }
 .panel-heading p { color: var(--muted); font-size: 13px; margin-top: 4px; }
-.layout-options { display: grid; gap: 10px; }
+.layout-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .layout-option { min-height: 82px; display: grid; grid-template-columns: 54px 1fr 24px; align-items: center; gap: 14px; border: 1px solid var(--line); border-radius: 16px; padding: 12px 16px; background: #fff; cursor: pointer; text-align: left; transition: .2s ease; }
 .layout-option:hover { transform: translateY(-1px); border-color: #d8b8a9; }
 .layout-option.selected { border-color: var(--coral); background: #fff7f3; box-shadow: 0 0 0 2px rgba(232,93,68,.08); }
@@ -77,6 +77,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .layout-icon { width: 42px; height: 54px; display: grid; gap: 3px; padding: 4px; border: 2px solid #c7b6a5; background: #fff; }
 .layout-icon i { display: block; background: #d9c6b3; }
 .layout-icon.grid { grid-template-columns: 1fr 1fr; }
+.layout-icon.polaroid { display: block; padding: 4px 4px 11px; box-shadow: 0 2px 5px rgba(60,45,30,.12); }
+.layout-icon.polaroid i { width: 100%; height: 100%; }
 .quick-settings { display: flex; gap: 10px; margin: 20px 0; }
 .quick-settings label, .toggle { flex: 1; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: white; padding: 8px 12px; font-size: 12px; }
 .quick-settings label { display: flex; align-items: center; justify-content: space-between; }
@@ -122,6 +124,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .camera-tools { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 16px 12px; color: white; }
 .camera-tools > label { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .camera-tools input { flex: 1; accent-color: var(--coral); }
+.device-zoom-hint { display: inline-flex; flex: 1; align-items: center; gap: 8px; font-size: 12px; color: #f4d5c9; }
 .flash-modes { background: #39312c; }
 .flash-modes button { color: #bdb2aa; }
 .flash-modes button.selected { background: #fff8ef; }
@@ -130,6 +133,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .capture-side > p:not(.eyebrow) { color: var(--muted); line-height: 1.6; }
 .device-picker { display: grid; gap: 6px; margin: 18px 0 8px; color: var(--muted); font-size: 11px; }
 .device-picker select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; background: white; }
+.zoom-source { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; color: var(--muted); font-size: 11px; }
+.zoom-source > div { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: #eee6dc; }
+.zoom-source button { border: 0; border-radius: 7px; padding: 7px 9px; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; white-space: nowrap; }
+.zoom-source button.selected { background: white; color: var(--coral-dark); box-shadow: 0 2px 6px rgba(60,40,20,.09); }
 .camera-capability { display: flex; align-items: center; gap: 6px; margin: 8px 0 !important; font-size: 11px; }
 .photo-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 26px 0; }
 .photo-slots div { aspect-ratio: 4/3; display: grid; place-items: center; overflow: hidden; border: 1px dashed #cdbdab; border-radius: 12px; color: #a68f7b; background: #f8efe3; }
@@ -329,6 +336,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .intro-card > p:not(.eyebrow) { font-size: 13px; line-height: 1.4; }
   .sample-strip { display: none; }
   .setup-panel, .editor-panel, .capture-side { padding: 24px 18px; border-radius: 21px; }
+  .layout-options { grid-template-columns: 1fr; }
   .quick-settings { flex-direction: column; }
   .camera-card { padding: 8px; border-radius: 22px; }
   .camera-stage { min-height: 0; border-radius: 16px; }

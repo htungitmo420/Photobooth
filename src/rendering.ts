@@ -1,6 +1,7 @@
 import { FILTERS } from './presets'
 import { getLayoutSlots } from './layoutGeometry'
-import { detectTransparentSlots } from './frameGeometry'
+import { detectTransparentSlots, slotsMatchLayout } from './frameGeometry'
+import { getFrameSize } from './frameSize'
 import type { BoothSession, FilterId } from './types'
 
 interface FrameAnalysis {
@@ -85,21 +86,27 @@ async function analyzeFrame(source: string, image: HTMLImageElement, expectedSlo
 }
 
 export async function composeStrip(session: BoothSession, scale = 1) {
-  const width = Math.round(session.layout.width * scale)
-  const height = Math.round(session.layout.height * scale)
+  const [images, overlay] = await Promise.all([
+    Promise.all(session.photos.map((photo) => loadImage(photo.dataUrl))),
+    session.frame.assetUrl ? loadImage(session.frame.assetUrl) : Promise.resolve(null),
+  ])
+  const dimensions = overlay
+    ? { width: overlay.naturalWidth, height: overlay.naturalHeight }
+    : getFrameSize(session.layout, session.frame)
+  const width = Math.round(dimensions.width * scale)
+  const height = Math.round(dimensions.height * scale)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Không thể tạo canvas xuất ảnh.')
 
-  const [images, overlay] = await Promise.all([
-    Promise.all(session.photos.map((photo) => loadImage(photo.dataUrl))),
-    session.frame.assetUrl ? loadImage(session.frame.assetUrl).catch(() => null) : Promise.resolve(null),
-  ])
   const frameAnalysis = overlay && session.frame.assetUrl
     ? await analyzeFrame(session.frame.assetUrl, overlay, session.layout.slots)
     : null
+  if (overlay && (!frameAnalysis || !slotsMatchLayout(frameAnalysis.slots, session.layout))) {
+    throw new Error('Frame không có đủ ô ảnh trong suốt đúng bố cục này.')
+  }
   const slots = frameAnalysis
     ? frameAnalysis.slots.map((slot) => ({
         x: slot.x / frameAnalysis.width * width,
@@ -109,7 +116,7 @@ export async function composeStrip(session: BoothSession, scale = 1) {
       }))
     : getLayoutSlots(session.layout, width, height)
 
-  if (!overlay || !frameAnalysis) paintBackground(context, width, height, session.frame.config.background)
+  if (!overlay) paintBackground(context, width, height, session.frame.config.background)
 
   slots.forEach((slot, index) => {
     const image = images[index]

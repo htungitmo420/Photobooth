@@ -1,4 +1,5 @@
-import type { BoothFrame, FrameConfig, LayoutId } from '../types'
+import { detectTransparentSlots, slotsMatchLayout } from '../frameGeometry'
+import type { BoothFrame, BoothLayout, FrameConfig, LayoutId } from '../types'
 
 const DATABASE_NAME = 'photobooth-local-assets'
 const STORE_NAME = 'frames'
@@ -12,6 +13,8 @@ interface StoredFrame {
   layoutId: LayoutId
   config: FrameConfig
   blob: Blob
+  assetWidth?: number
+  assetHeight?: number
   createdAt: number
 }
 
@@ -49,6 +52,8 @@ function toFrame(record: StoredFrame): BoothFrame {
     assetUrl: URL.createObjectURL(record.blob),
     source: 'local',
     layoutId: record.layoutId,
+    assetWidth: record.assetWidth,
+    assetHeight: record.assetHeight,
   }
 }
 
@@ -57,12 +62,27 @@ export async function loadLocalFrames(): Promise<BoothFrame[]> {
   return records.sort((a, b) => b.createdAt - a.createdAt).map(toFrame)
 }
 
-function readImageSize(file: File): Promise<{ width: number; height: number }> {
+function inspectFrame(file: File, layout: BoothLayout): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     const url = URL.createObjectURL(file)
     image.onload = () => {
-      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+      try {
+        const ratio = Math.min(1, 420 / Math.max(image.naturalWidth, image.naturalHeight))
+        const width = Math.max(1, Math.round(image.naturalWidth * ratio))
+        const height = Math.max(1, Math.round(image.naturalHeight * ratio))
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        if (!context) throw new Error('Không thể kiểm tra frame.')
+        context.drawImage(image, 0, 0, width, height)
+        const slots = detectTransparentSlots(context.getImageData(0, 0, width, height).data, width, height, layout.slots)
+        if (!slotsMatchLayout(slots, layout)) throw new Error(`Frame cần có ${layout.slots} ô ảnh trong suốt đúng bố cục ${layout.name}.`)
+        resolve({ width: image.naturalWidth, height: image.naturalHeight })
+      } catch (error) {
+        reject(error)
+      }
       URL.revokeObjectURL(url)
     }
     image.onerror = () => {
@@ -73,20 +93,20 @@ function readImageSize(file: File): Promise<{ width: number; height: number }> {
   })
 }
 
-export async function saveLocalFrame(file: File, name: string, layoutId: LayoutId, expectedAspect: number): Promise<BoothFrame> {
+export async function saveLocalFrame(file: File, name: string, layout: BoothLayout): Promise<BoothFrame> {
   if (!ALLOWED_TYPES.has(file.type)) throw new Error('Frame chỉ nhận file PNG hoặc WebP.')
   if (file.size > MAX_FRAME_BYTES) throw new Error('Frame phải nhỏ hơn 5 MB.')
-  const dimensions = await readImageSize(file)
-  const difference = Math.abs(dimensions.width / dimensions.height - expectedAspect) / expectedAspect
-  if (difference > 0.04) throw new Error('Tỷ lệ frame chưa khớp bố cục đang chọn. Hãy xuất frame đúng tỷ lệ rồi thử lại.')
+  const dimensions = await inspectFrame(file, layout)
 
   const record: StoredFrame = {
     id: `local-${crypto.randomUUID()}`,
     name: name.trim().slice(0, 32) || file.name.replace(/\.[^.]+$/, '').slice(0, 32) || 'Frame của tôi',
-    description: `Frame cá nhân cho ${layoutId}`,
-    layoutId,
+    description: `Frame cá nhân cho ${layout.name}`,
+    layoutId: layout.id,
     config: { background: '#fffdf8', accent: '#e85d44', textColor: '#25221f', radius: 24 },
     blob: file,
+    assetWidth: dimensions.width,
+    assetHeight: dimensions.height,
     createdAt: Date.now(),
   }
   await runStore<IDBValidKey>('readwrite', (store) => store.add(record))

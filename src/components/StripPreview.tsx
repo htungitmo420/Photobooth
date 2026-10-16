@@ -1,6 +1,7 @@
 import { Maximize2, RotateCw, Trash2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { composeStrip } from '../rendering'
+import { getFrameSize } from '../frameSize'
 import type { BoothSession } from '../types'
 
 interface Props {
@@ -19,6 +20,11 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
   const wrapRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(false)
   const [fitSize, setFitSize] = useState<{ width: number; height: number } | null>(null)
+  const [renderSize, setRenderSize] = useState<{ key: string; width: number; height: number } | null>(null)
+  const [renderError, setRenderError] = useState(false)
+  const frameSize = getFrameSize(session.layout, session.frame)
+  const renderKey = `${session.layout.id}:${session.frame.id}`
+  const outputSize = renderSize?.key === renderKey ? renderSize : frameSize
   const renderStickers = interactive ? null : session.stickers
   const renderSession = useMemo(
     () => interactive ? { ...session, stickers: [] } : session,
@@ -28,13 +34,16 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
   useEffect(() => {
     let cancelled = false
     setRendering(true)
+    setRenderError(false)
     composeStrip(renderSession, 0.5)
       .then((canvas) => {
         if (cancelled || !canvasRef.current) return
         canvasRef.current.width = canvas.width
         canvasRef.current.height = canvas.height
+        setRenderSize({ key: renderKey, width: canvas.width, height: canvas.height })
         canvasRef.current.getContext('2d')?.drawImage(canvas, 0, 0)
       })
+      .catch(() => { if (!cancelled) setRenderError(true) })
       .finally(() => !cancelled && setRendering(false))
     return () => { cancelled = true }
   }, [renderSession])
@@ -46,16 +55,16 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
       const sideSpace = interactive ? Math.min(64, Math.max(24, parent.clientWidth * .14)) : 12
       const verticalSpace = interactive ? Math.min(38, parent.clientHeight * .07) : 12
       const scale = Math.min(
-        Math.max(1, parent.clientWidth - sideSpace * 2) / session.layout.width,
-        Math.max(1, parent.clientHeight - verticalSpace * 2) / session.layout.height,
+        Math.max(1, parent.clientWidth - sideSpace * 2) / outputSize.width,
+        Math.max(1, parent.clientHeight - verticalSpace * 2) / outputSize.height,
       )
-      setFitSize({ width: session.layout.width * scale, height: session.layout.height * scale })
+      setFitSize({ width: outputSize.width * scale, height: outputSize.height * scale })
     }
     fit()
     const observer = new ResizeObserver(fit)
     observer.observe(parent)
     return () => observer.disconnect()
-  }, [interactive, session.layout.width, session.layout.height])
+  }, [interactive, outputSize.width, outputSize.height])
 
   const moveSticker = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
     if (!interactive || !onMoveSticker || !wrapRef.current) return
@@ -137,7 +146,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
   }
 
   return (
-    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''} ${interactive ? 'interactive' : ''}`} style={{ aspectRatio: `${session.layout.width}/${session.layout.height}`, ...(fitSize ?? {}) }}>
+    <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''} ${interactive ? 'interactive' : ''}`} style={{ aspectRatio: `${outputSize.width}/${outputSize.height}`, ...(fitSize ?? {}) }}>
       <canvas
         ref={canvasRef}
         aria-label={onPreview ? 'Mở bản xem trước dải ảnh' : 'Bản xem trước dải ảnh'}
@@ -152,6 +161,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
         }}
       />
       {rendering && <span className="render-badge">Đang cập nhật…</span>}
+      {renderError && <span className="render-badge">Không thể hiển thị khung này.</span>}
       {interactive && session.stickers.map((sticker) => (
         <div
           className={`sticker-node ${selectedStickerId === sticker.id ? 'selected' : ''}`}

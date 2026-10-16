@@ -28,15 +28,25 @@ export const LAYOUTS: BoothLayout[] = [
     height: 1500,
     kind: 'grid',
   },
+  {
+    id: 'polaroid',
+    name: 'Polaroid',
+    description: 'Một ảnh lớn, chân ảnh rộng',
+    slots: 1,
+    width: 1200,
+    height: 1500,
+    kind: 'polaroid',
+  },
 ]
 
 export const FALLBACK_FRAMES: BoothFrame[] = [
-  { id: 'paper', name: 'Giấy trắng', description: 'Sạch và tối giản', config: { background: '#fffdf8', accent: '#e85d44', textColor: '#25221f', radius: 24 }, source: 'fallback' },
-  { id: 'midnight', name: 'Đêm đen', description: 'Tương phản và điện ảnh', config: { background: '#171717', accent: '#f4c95d', textColor: '#fff8ef', radius: 20 }, source: 'fallback' },
-  { id: 'cream', name: 'Kem bơ', description: 'Ấm áp và hoài cổ', config: { background: '#f6e7c9', accent: '#a65a3a', textColor: '#4b382a', radius: 18 }, source: 'fallback' },
-  { id: 'blush', name: 'Hồng phấn', description: 'Dịu dàng và vui tươi', config: { background: '#f9dbe4', accent: '#d44872', textColor: '#61283a', radius: 28 }, source: 'fallback' },
-  { id: 'lavender', name: 'Oải hương', description: 'Mơ màng, nhẹ nhàng', config: { background: '#e8e0f6', accent: '#7654a8', textColor: '#382653', radius: 28 }, source: 'fallback' },
-  { id: 'film', name: 'Cuộn phim', description: 'Viền phim cổ điển', config: { background: '#1f1b18', accent: '#f0a34a', textColor: '#f8ead7', radius: 8 }, source: 'fallback' },
+  {
+    id: 'paper',
+    name: 'Trắng viền đen',
+    description: 'Nền trắng, viền ảnh đen bo tròn',
+    config: { background: '#ffffff', accent: '#111111', textColor: '#111111', radius: 26 },
+    source: 'fallback',
+  },
 ]
 
 export const FILTERS: Array<{ id: FilterId; name: string; css: string }> = [

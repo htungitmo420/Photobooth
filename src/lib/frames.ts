@@ -8,6 +8,9 @@ interface FrameRow {
   description: string | null
   config: FrameConfig
   asset_path: string | null
+  layout_id: BoothFrame['layoutId'] | null
+  asset_width: number | null
+  asset_height: number | null
 }
 
 export async function loadFrames(): Promise<{ frames: BoothFrame[]; remote: boolean }> {
@@ -16,7 +19,7 @@ export async function loadFrames(): Promise<{ frames: BoothFrame[]; remote: bool
 
   const { data, error } = await client
     .from('photobooth_frames')
-    .select('id,name,description,config,asset_path')
+    .select('id,name,description,config,asset_path,layout_id,asset_width,asset_height')
     .eq('is_published', true)
     .order('sort_order')
 
@@ -36,6 +39,9 @@ export async function loadFrames(): Promise<{ frames: BoothFrame[]; remote: bool
       description: row.description ?? '',
       config: row.config,
       assetUrl,
+      layoutId: row.layout_id ?? undefined,
+      assetWidth: row.asset_width ?? undefined,
+      assetHeight: row.asset_height ?? undefined,
       source: 'supabase' as const,
     }
   })

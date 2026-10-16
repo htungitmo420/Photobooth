@@ -1,4 +1,5 @@
 import type { SlotRect } from './layoutGeometry'
+import type { BoothLayout } from './types'
 
 interface Component extends SlotRect {
   area: number
@@ -62,4 +63,15 @@ export function detectTransparentSlots(
     const rowTolerance = Math.min(a.height, b.height) * 0.35
     return Math.abs(a.y - b.y) <= rowTolerance ? a.x - b.x : a.y - b.y
   }).map(({ x, y, width: slotWidth, height: slotHeight }) => ({ x, y, width: slotWidth, height: slotHeight }))
+}
+
+export function slotsMatchLayout(slots: SlotRect[], layout: BoothLayout): boolean {
+  if (slots.length !== layout.slots) return false
+  const centerY = (slot: SlotRect) => slot.y + slot.height / 2
+  const sameRow = (a: SlotRect, b: SlotRect) => Math.abs(centerY(a) - centerY(b)) < Math.min(a.height, b.height) * 0.35
+  if (layout.kind === 'strip') {
+    return slots.every((slot, index) => index === 0 || !sameRow(slots[index - 1], slot))
+  }
+  if (layout.kind === 'polaroid') return slots.length === 1
+  return sameRow(slots[0], slots[1]) && sameRow(slots[2], slots[3]) && !sameRow(slots[1], slots[2])
 }

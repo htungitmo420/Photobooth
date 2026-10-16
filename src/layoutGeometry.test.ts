@@ -39,4 +39,13 @@ describe('getLayoutSlots', () => {
       expect(slot.height).toBeCloseTo(full[index].height / 2)
     })
   })
+
+  it('keeps the Polaroid photo square with a wide caption area below', () => {
+    const layout = LAYOUTS.find((item) => item.id === 'polaroid')!
+    const [photo] = getLayoutSlots(layout, layout.width, layout.height)
+
+    expect(photo.width).toBeCloseTo(photo.height)
+    expect(photo.y + photo.height).toBeLessThan(layout.height * 0.8)
+    expect(layout.height - photo.y - photo.height).toBeGreaterThan(layout.height * 0.2)
+  })
 })

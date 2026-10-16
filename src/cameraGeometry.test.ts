@@ -10,6 +10,8 @@ describe('camera geometry', () => {
 
   it('keeps a zoomed and panned crop inside the source', () => {
     const crop = getSourceCrop(1280, 720, 4 / 3, { zoom: 2, offsetX: 1, offsetY: -1 })
+    expect(crop.width).toBe(480)
+    expect(crop.height).toBe(360)
     expect(crop.x).toBeGreaterThanOrEqual(0)
     expect(crop.y).toBeGreaterThanOrEqual(0)
     expect(crop.x + crop.width).toBeLessThanOrEqual(1280)

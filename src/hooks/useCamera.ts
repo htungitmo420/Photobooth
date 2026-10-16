@@ -4,12 +4,10 @@ import { getSourceCrop, type CameraTransform } from '../cameraGeometry'
 export type CameraFacing = 'user' | 'environment'
 
 interface ExtendedCapabilities extends MediaTrackCapabilities {
-  zoom?: { min: number; max: number; step?: number }
   torch?: boolean
 }
 
 interface ExtendedConstraintSet extends MediaTrackConstraintSet {
-  zoom?: number
   torch?: boolean
 }
 
@@ -31,7 +29,6 @@ export function useCamera() {
   const [facing, setFacing] = useState<CameraFacing>('user')
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
-  const [zoomRange, setZoomRange] = useState<{ min: number; max: number; step: number } | null>(null)
   const [torchSupported, setTorchSupported] = useState(false)
 
   const getTrack = useCallback(() => streamRef.current?.getVideoTracks()[0] ?? null, [])
@@ -43,7 +40,6 @@ export function useCamera() {
     if (videoRef.current) videoRef.current.srcObject = null
     setActive(false)
     setLoading(false)
-    setZoomRange(null)
     setTorchSupported(false)
   }, [])
 
@@ -89,8 +85,6 @@ export function useCamera() {
       const track = stream.getVideoTracks()[0]
       const settings = track.getSettings()
       const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() as ExtendedCapabilities : {}
-      const zoom = capabilities.zoom
-      setZoomRange(zoom ? { min: zoom.min, max: zoom.max, step: zoom.step || 0.1 } : null)
       setTorchSupported(capabilities.torch === true)
       setSelectedDeviceId(settings.deviceId ?? deviceId ?? null)
       if (videoRef.current) {
@@ -113,18 +107,6 @@ export function useCamera() {
   const selectDevice = useCallback(async (deviceId: string) => start(facing, deviceId), [facing, start])
 
   const switchFacing = useCallback(async () => start(facing === 'user' ? 'environment' : 'user'), [facing, start])
-
-  const applyHardwareZoom = useCallback(async (value: number) => {
-    const track = getTrack()
-    if (!track || !zoomRange) return false
-    try {
-      const normalized = Math.min(zoomRange.max, Math.max(zoomRange.min, value))
-      await track.applyConstraints({ advanced: [{ zoom: normalized } as ExtendedConstraintSet] })
-      return true
-    } catch {
-      return false
-    }
-  }, [getTrack, zoomRange])
 
   const setTorch = useCallback(async (enabled: boolean) => {
     const track = getTrack()
@@ -174,7 +156,7 @@ export function useCamera() {
   useEffect(() => stop, [stop])
 
   return {
-    videoRef, active, loading, error, facing, devices, selectedDeviceId, zoomRange, torchSupported,
-    start, stop, switchFacing, selectDevice, applyHardwareZoom, setTorch, measureBrightness, capture,
+    videoRef, active, loading, error, facing, devices, selectedDeviceId, torchSupported,
+    start, stop, switchFacing, selectDevice, setTorch, measureBrightness, capture,
   }
 }

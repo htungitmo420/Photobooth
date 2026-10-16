@@ -5,6 +5,8 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
+import { suggestedZoomMode, type ZoomMode } from './cameraSource'
+import { getFrameSize } from './frameSize'
 import { StripPreview } from './components/StripPreview'
 import { useCamera } from './hooks/useCamera'
 import { loadFrames } from './lib/frames'
@@ -65,6 +67,7 @@ export default function App() {
   const [screenFlash, setScreenFlash] = useState(false)
   const [flashMode, setFlashMode] = useState<FlashMode>('auto')
   const [cameraTransform, setCameraTransform] = useState<CameraTransform>(DEFAULT_CAMERA_TRANSFORM)
+  const [zoomModeOverride, setZoomModeOverride] = useState<ZoomMode | null>(null)
   const [retakeIndex, setRetakeIndex] = useState<number | null>(null)
   const [filter, setFilter] = useState<FilterId>('original')
   const [caption, setCaption] = useState('KHOẢNH KHẮC')
@@ -87,6 +90,9 @@ export default function App() {
   const frameInputRef = useRef<HTMLInputElement>(null)
   const previewDragRef = useRef<{ pointerId: number; x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const camera = useCamera()
+  const cameraLabel = camera.devices.find((device) => device.deviceId === camera.selectedDeviceId)?.label ?? ''
+  const zoomMode = zoomModeOverride ?? suggestedZoomMode(cameraLabel)
+  const outputSize = getFrameSize(layout, frame)
 
   const setNotice = useCallback((message: string | null) => {
     if (message === null) {
@@ -256,7 +262,7 @@ export default function App() {
         } while (pausedRef.current)
       }
       if (!await waitDuringCapture(0, token)) return null
-      const dataUrl = camera.capture(mirror, cameraTransform)
+      const dataUrl = camera.capture(mirror, zoomMode === 'web' ? cameraTransform : DEFAULT_CAMERA_TRANSFORM)
       if (!dataUrl) throw new Error('Camera chưa sẵn sàng. Hãy thử lại.')
       playTone(sound, 260)
       return { id: makeId('photo'), dataUrl } satisfies CapturedPhoto
@@ -395,12 +401,18 @@ export default function App() {
     setCameraTransform((current) => ({ ...current, zoom: value }))
   }
 
+  const selectCamera = (deviceId: string) => {
+    setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
+    setZoomModeOverride(null)
+    void camera.selectDevice(deviceId)
+  }
+
   const addLocalFrame = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
     try {
-      const added = await saveLocalFrame(file, file.name.replace(/\.[^.]+$/, ''), layout.id, layout.width / layout.height)
+      const added = await saveLocalFrame(file, file.name.replace(/\.[^.]+$/, ''), layout)
       setFrames((current) => [added, ...current])
       setFrame(added)
       setNotice('Đã lưu frame vào trình duyệt này.')
@@ -500,7 +512,7 @@ export default function App() {
                 muted
                 playsInline
                 style={{
-                  transform: `${mirror ? 'scaleX(-1) ' : ''}scale(${cameraTransform.zoom}) translate(${-cameraTransform.offsetX * 8}%, ${-cameraTransform.offsetY * 8}%)`,
+                  transform: `${mirror ? 'scaleX(-1) ' : ''}scale(${zoomMode === 'web' ? cameraTransform.zoom : 1}) translate(${zoomMode === 'web' ? -cameraTransform.offsetX * 8 : 0}%, ${zoomMode === 'web' ? -cameraTransform.offsetY * 8 : 0}%)`,
                 }}
               />
               {!camera.active && <div className="camera-placeholder">{camera.loading ? <LoaderCircle className="spin" /> : <Camera />}<p>{camera.loading ? 'Đang mở camera…' : camera.error ?? 'Camera đang tắt'}</p>{!camera.loading && <button onClick={() => camera.start()}>Thử lại</button>}</div>}
@@ -516,7 +528,9 @@ export default function App() {
               <button className="icon-button" onClick={() => camera.switchFacing()} disabled={capturing} aria-label="Đổi camera"><SwitchCamera /></button>
             </div>
             <div className="camera-tools">
-              <label><ZoomIn size={15} /><input aria-label="Zoom camera" type="range" min={1} max={3} step={.05} value={cameraTransform.zoom} onChange={(event) => handleZoom(Number(event.target.value))} /><span>{cameraTransform.zoom.toFixed(1)}×</span></label>
+              {zoomMode === 'web'
+                ? <label><ZoomIn size={15} /><input aria-label="Zoom camera" type="range" min={1} max={3} step={.05} value={cameraTransform.zoom} onChange={(event) => handleZoom(Number(event.target.value))} /><span>{cameraTransform.zoom.toFixed(1)}×</span></label>
+                : <span className="device-zoom-hint"><ZoomIn size={15} /> Zoom trực tiếp trên máy ảnh</span>}
               <div className="flash-modes">{(['off', 'auto', 'on'] as FlashMode[]).map((mode) => <button key={mode} className={flashMode === mode ? 'selected' : ''} onClick={() => setFlashMode(mode)} disabled={capturing}>{mode === 'off' ? 'Tắt' : mode === 'auto' ? 'Auto' : 'Bật'}</button>)}</div>
             </div>
             {capturing && <button className="cancel-button" onClick={cancelCapture}>Hủy chuỗi chụp</button>}
@@ -525,7 +539,8 @@ export default function App() {
             <p className="eyebrow">{layout.name}</p>
             <h2>Đổi dáng sau mỗi tiếng bíp</h2>
             <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị. Giữ camera ngang tầm mắt để khung hình tự nhiên hơn.</p>
-            {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => void camera.selectDevice(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
+            {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => selectCamera(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
+            <div className="zoom-source"><span>Điều khiển zoom</span><div role="group" aria-label="Cách điều khiển zoom"><button className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => { setZoomModeOverride('web'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trong web</button><button className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => { setZoomModeOverride('device'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trên máy ảnh</button></div></div>
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
             <div className="photo-slots">
               {Array.from({ length: layout.slots }, (_, index) => (
@@ -568,7 +583,7 @@ export default function App() {
                 <button className="add-frame" onClick={() => frameInputRef.current?.click()}><Plus size={17} /> Thêm frame</button>
               </div>
               <input ref={frameInputRef} className="visually-hidden" type="file" accept="image/png,image/webp" onChange={addLocalFrame} />
-              <p className="hint">PNG/WebP tối đa 5 MB, đúng tỷ lệ bố cục hiện tại. Frame được lưu riêng trong trình duyệt này.</p>
+              <p className="hint">PNG/WebP tối đa 5 MB, có đúng số ô ảnh trong suốt. Giữ nguyên tỷ lệ khung gốc; lưu riêng trong trình duyệt này.</p>
             </section>
 
             <section className="control-section caption-section"><h3>Lời nhắn</h3><div className="caption-field"><input value={caption} disabled={Boolean(frame.assetUrl)} maxLength={60} onChange={(event) => setCaption(event.target.value)} placeholder="KHOẢNH KHẮC" /><span>{caption.length}/60</span></div><label className="check-line"><input type="checkbox" disabled={Boolean(frame.assetUrl)} checked={showDate} onChange={(event) => setShowDate(event.target.checked)} /> Hiện ngày chụp</label>{frame.assetUrl && <p className="hint">Frame này dùng thiết kế footer có sẵn nên lời nhắn và ngày mặc định được ẩn.</p>}</section>
@@ -591,7 +606,7 @@ export default function App() {
             </section>
             </div>}
 
-            <section className="download-card"><div><ImageIcon /><span><strong>{layout.width} × {layout.height} px</strong><small>Ảnh chất lượng cao</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : 'Tải ảnh về'}</button></section>
+            <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>Ảnh chất lượng cao</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : 'Tải ảnh về'}</button></section>
 
           </div>
         </section>

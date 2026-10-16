@@ -1,5 +1,5 @@
 export type AppStep = 'setup' | 'capture' | 'edit'
-export type LayoutId = 'strip3' | 'strip4' | 'grid4'
+export type LayoutId = 'strip3' | 'strip4' | 'grid4' | 'polaroid'
 export type FilterId = 'original' | 'mono' | 'warm' | 'cool' | 'vintage' | 'soft'
 export type FlashMode = 'off' | 'auto' | 'on'
 export type StickerCategory = 'cute' | 'text' | 'nature' | 'shapes' | 'lucky' | 'retro'
@@ -11,7 +11,7 @@ export interface BoothLayout {
   slots: number
   width: number
   height: number
-  kind: 'strip' | 'grid'
+  kind: 'strip' | 'grid' | 'polaroid'
 }
 
 export interface FrameConfig {
@@ -29,6 +29,8 @@ export interface BoothFrame {
   assetUrl?: string
   source: 'supabase' | 'fallback' | 'local'
   layoutId?: LayoutId
+  assetWidth?: number
+  assetHeight?: number
 }
 
 export interface CapturedPhoto {
