@@ -36,6 +36,7 @@ export const LAYOUTS: BoothLayout[] = [
     width: 1200,
     height: 1500,
     kind: 'polaroid',
+    badge: 'Beta',
   },
 ]
 

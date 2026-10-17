@@ -1,7 +1,7 @@
 import {
   Camera, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, FlipHorizontal2, Image as ImageIcon,
   Layers, LoaderCircle, Pause, Play, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck,
-  SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
+  SwitchCamera, Trash2, Video, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
@@ -23,6 +23,10 @@ import {
 } from './lib/localBackgrounds'
 import { loadRemoteBackgrounds, type RemoteBackground } from './lib/backgrounds'
 import { loadStickers } from './lib/stickers'
+import {
+  MOTION_DURATION_MS, captureMotionClip, downloadMotionBlob, revokeMotionClip,
+  type CaptureMode, type MotionClip,
+} from './motionCapture'
 import { FILTERS, FALLBACK_FRAMES, FALLBACK_STICKERS, LAYOUTS, STICKER_CATEGORIES } from './presets'
 import { downloadCollage, downloadStrip } from './rendering'
 import type { AppStep, BoothFrame, BoothSession, BoothSticker, CapturedPhoto, FilterId, FlashMode, StickerAsset, StickerCategory } from './types'
@@ -71,6 +75,10 @@ export default function App() {
   const [frame, setFrame] = useState<BoothFrame>(FALLBACK_FRAMES[0])
   const [remoteFrames, setRemoteFrames] = useState(false)
   const [photos, setPhotos] = useState<CapturedPhoto[]>([])
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('photo')
+  const [motionClip, setMotionClip] = useState<MotionClip | null>(null)
+  const [motionPhase, setMotionPhase] = useState<'idle' | 'countdown' | 'recording' | 'encoding'>('idle')
+  const [motionRemaining, setMotionRemaining] = useState(MOTION_DURATION_MS)
   const [countdownSeconds, setCountdownSeconds] = useState(getSavedCountdown)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [capturing, setCapturing] = useState(false)
@@ -111,6 +119,7 @@ export default function App() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewView, setPreviewView] = useState({ zoom: 1, x: 0, y: 0 })
   const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null)
+  const [motionPreviewOpen, setMotionPreviewOpen] = useState(false)
   const cancelRef = useRef(0)
   const pausedRef = useRef(false)
   const frameInputRef = useRef<HTMLInputElement>(null)
@@ -189,17 +198,20 @@ export default function App() {
     return () => document.body.classList.remove('editor-mode')
   }, [step])
 
+  useEffect(() => () => revokeMotionClip(motionClip), [motionClip])
+
   useEffect(() => {
-    if (!previewOpen && photoPreviewIndex === null) return
+    if (!previewOpen && photoPreviewIndex === null && !motionPreviewOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setPreviewOpen(false)
         setPhotoPreviewIndex(null)
+        setMotionPreviewOpen(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [photoPreviewIndex, previewOpen])
+  }, [motionPreviewOpen, photoPreviewIndex, previewOpen])
 
   const openPreview = () => {
     setPreviewView({ zoom: 1, x: 0, y: 0 })
@@ -220,6 +232,7 @@ export default function App() {
         setPaused(false)
         setCountdown(null)
         setScreenFlash(false)
+        setMotionPhase('idle')
         void camera.setTorch(false)
         camera.stop()
         setNotice('Phiên chụp đã tạm dừng vì bạn chuyển tab.')
@@ -349,6 +362,34 @@ export default function App() {
         setPhotos((current) => [...current, photo])
         if (index < layout.slots - 1 && !await waitDuringCapture(800, token)) return
       }
+      if (captureMode === 'photo-motion') {
+        setMotionPhase('countdown')
+        if (!await runCountdown(token)) return
+        const video = camera.videoRef.current
+        if (!video) throw new Error('Camera chưa sẵn sàng để quay chuyển động.')
+        setMotionPhase('recording')
+        setMotionRemaining(MOTION_DURATION_MS)
+        let clip: MotionClip
+        try {
+          clip = await captureMotionClip({
+            video,
+            mirror,
+            transform: zoomMode === 'web' ? cameraTransform : DEFAULT_CAMERA_TRANSFORM,
+            isPaused: () => pausedRef.current,
+            isCancelled: () => token !== cancelRef.current,
+            onProgress: setMotionRemaining,
+            onEncoding: () => setMotionPhase('encoding'),
+          })
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') return
+          throw error
+        }
+        if (token !== cancelRef.current) {
+          revokeMotionClip(clip)
+          return
+        }
+        setMotionClip(clip)
+      }
       camera.stop()
       setStep('edit')
     } catch (error) {
@@ -359,6 +400,7 @@ export default function App() {
         setCountdown(null)
         pausedRef.current = false
         setPaused(false)
+        setMotionPhase('idle')
       }
     }
   }
@@ -370,6 +412,7 @@ export default function App() {
     pausedRef.current = false
     setPaused(false)
     setScreenFlash(false)
+    setMotionPhase('idle')
     void camera.setTorch(false)
     setNotice(photos.length ? 'Đã giữ các ảnh vừa chụp. Bạn có thể chụp tiếp.' : 'Đã hủy lượt chụp.')
   }
@@ -388,6 +431,8 @@ export default function App() {
     setPaused(false)
     camera.stop()
     setPhotos([])
+    setMotionClip(null)
+    setMotionPhase('idle')
     setStickers([])
     setFilter('original')
     setCaption('KHOẢNH KHẮC')
@@ -624,10 +669,17 @@ export default function App() {
               {LAYOUTS.map((item) => (
                 <button key={item.id} onClick={() => setLayout(item)} className={`layout-option ${layout.id === item.id ? 'selected' : ''}`}>
                   <span className={`layout-icon ${item.kind} slots-${item.slots}`}>{Array.from({ length: item.slots }, (_, index) => <i key={index} />)}</span>
-                  <span><strong>{item.name}</strong><small>{item.description}</small></span>
+                  <span><strong>{item.name}{item.badge && <b className="beta-badge">{item.badge}</b>}</strong><small>{item.description}</small></span>
                   {layout.id === item.id && <Check size={18} />}
                 </button>
               ))}
+            </div>
+            <div className="capture-mode-setting">
+              <span>Loại phiên chụp</span>
+              <div role="group" aria-label="Loại phiên chụp">
+                <button className={captureMode === 'photo' ? 'selected' : ''} aria-pressed={captureMode === 'photo'} onClick={() => setCaptureMode('photo')}><ImageIcon size={16} /><span><strong>Chỉ ảnh</strong><small>Photobooth thông thường</small></span></button>
+                <button className={captureMode === 'photo-motion' ? 'selected' : ''} aria-pressed={captureMode === 'photo-motion'} onClick={() => setCaptureMode('photo-motion')}><Video size={16} /><span><strong>Ảnh + chuyển động</strong><small>Thêm video 6 giây và GIF</small></span></button>
+              </div>
             </div>
             <div className="quick-settings">
               <label>Đếm ngược <span className="number-setting"><input aria-label="Số giây đếm ngược" type="number" min={0} max={30} value={countdownSeconds} onChange={(event) => setCountdownSeconds(Math.min(30, Math.max(0, Number(event.target.value))))} /> giây</span></label>
@@ -653,10 +705,12 @@ export default function App() {
                 }}
               />
               {!camera.active && <div className="camera-placeholder">{camera.loading ? <LoaderCircle className="spin" /> : <Camera />}<p>{camera.loading ? 'Đang mở camera…' : camera.error ?? 'Camera đang tắt'}</p>{!camera.loading && <button onClick={() => camera.start()}>Thử lại</button>}</div>}
-              {countdown !== null && <div className="countdown"><span>{countdown}</span><small>Chuẩn bị nhé!</small></div>}
+              {countdown !== null && <div className="countdown"><span>{countdown}</span><small>{motionPhase === 'countdown' ? 'Sắp quay chuyển động!' : 'Chuẩn bị nhé!'}</small></div>}
+              {motionPhase === 'recording' && <div className="motion-recording"><i /><strong>Đang quay chuyển động</strong><span>{Math.max(1, Math.ceil(motionRemaining / 1000))} giây</span></div>}
+              {motionPhase === 'encoding' && <div className="motion-encoding"><LoaderCircle className="spin" /><strong>Đang tạo GIF…</strong></div>}
               {paused && <div className="pause-overlay"><Pause size={42} /><strong>Đã tạm dừng</strong><span>Ấn Tiếp tục để chụp tiếp.</span></div>}
               {screenFlash && <div className="flash" />}
-              <div className="camera-progress">{retakeIndex !== null ? `Chụp lại ảnh ${retakeIndex + 1}` : `Ảnh ${Math.min(photos.length + 1, layout.slots)} / ${layout.slots}`}</div>
+              <div className="camera-progress">{motionPhase !== 'idle' ? 'Video + GIF' : retakeIndex !== null ? `Chụp lại ảnh ${retakeIndex + 1}` : `Ảnh ${Math.min(photos.length + 1, layout.slots)} / ${layout.slots}`}</div>
             </div>
             <div className="camera-actions">
               <button className="icon-button" onClick={() => setMirror((value) => !value)} disabled={capturing} aria-label="Lật ảnh"><FlipHorizontal2 /></button>
@@ -674,8 +728,8 @@ export default function App() {
           </div>
           <aside className="capture-side">
             <p className="eyebrow">{layout.name}</p>
-            <h2>Đổi dáng sau mỗi tiếng bíp</h2>
-            <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị. Giữ camera ngang tầm mắt để khung hình tự nhiên hơn.</p>
+            <h2>{motionPhase === 'recording' ? 'Chuyển động tự nhiên nhé!' : 'Đổi dáng sau mỗi tiếng bíp'}</h2>
+            <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị.{captureMode === 'photo-motion' && ' Sau ảnh cuối, máy sẽ quay thêm một clip 6 giây để tạo video và GIF.'}</p>
             {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => selectCamera(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
             <div className="zoom-source"><span>Điều khiển zoom</span><div role="group" aria-label="Cách điều khiển zoom"><button className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => { setZoomModeOverride('web'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trong web</button><button className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => { setZoomModeOverride('device'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trên máy ảnh</button></div></div>
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
@@ -685,6 +739,7 @@ export default function App() {
                   {photos[index] ? <img src={photos[index].dataUrl} alt={`Ảnh ${index + 1}`} /> : <span>{index + 1}</span>}
                 </div>
               ))}
+              {captureMode === 'photo-motion' && <div className={`motion-slot ${motionClip ? 'filled' : ''}`}><Video size={18} /><span>{motionClip ? 'Đã quay' : '6 giây'}</span></div>}
             </div>
             <button className="text-button" onClick={() => { camera.stop(); setStep(photos.length === layout.slots ? 'edit' : 'setup') }}><ChevronLeft size={17} /> Quay lại</button>
           </aside>
@@ -713,6 +768,7 @@ export default function App() {
             </div>
             <div className="retake-row">
               {photos.map((photo, index) => <button key={photo.id} onClick={() => setPhotoPreviewIndex(index)}><img src={photo.dataUrl} alt="" /><span><ImageIcon size={13} /> Xem ảnh {index + 1}</span></button>)}
+              {motionClip && <button className="motion-review-button" onClick={() => setMotionPreviewOpen(true)}><video src={motionClip.videoUrl} muted playsInline preload="metadata" /><span><Video size={13} /> Xem chuyển động</span></button>}
             </div>
           </div>
 
@@ -812,7 +868,10 @@ export default function App() {
               </section>
             </div>}
 
-            <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>{editorPanelTab === 'background' ? 'Ảnh nền ghép chất lượng cao' : 'Ảnh chất lượng cao'}</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : editorPanelTab === 'background' ? 'Tải ảnh ghép' : 'Tải ảnh về'}</button></section>
+            <div className="export-stack">
+              {motionClip && <section className="motion-export-card"><div><Video /><span><strong>Khoảnh khắc chuyển động</strong><small>Video 6 giây và GIF lặp</small></span></div><div><button onClick={() => downloadMotionBlob(motionClip.videoBlob, 'webm')}><Download size={16} /> Video</button><button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={16} /> GIF</button></div></section>}
+              <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>{editorPanelTab === 'background' ? 'Ảnh nền ghép chất lượng cao' : 'Ảnh chất lượng cao'}</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : editorPanelTab === 'background' ? 'Tải ảnh ghép' : 'Tải ảnh về'}</button></section>
+            </div>
 
           </div>
         </section>
@@ -882,6 +941,19 @@ export default function App() {
               <button className="retake-button" onClick={() => void enterCamera(photoPreviewIndex)}><RotateCcw size={17} /> Chụp lại ảnh {photoPreviewIndex + 1}</button>
               <button onClick={() => setPhotoPreviewIndex((current) => current === null ? null : Math.min(photos.length - 1, current + 1))} disabled={photoPreviewIndex === photos.length - 1} aria-label="Ảnh sau"><ChevronRight /></button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {motionPreviewOpen && motionClip && (
+        <div className="photo-review-modal" role="dialog" aria-modal="true" aria-labelledby="motion-review-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setMotionPreviewOpen(false) }}>
+          <div className="photo-review-card motion-review-card">
+            <div className="photo-review-head">
+              <div><p className="eyebrow">Ảnh + chuyển động</p><h2 id="motion-review-title">Video 6 giây</h2></div>
+              <button autoFocus onClick={() => setMotionPreviewOpen(false)} aria-label="Đóng xem video"><X /></button>
+            </div>
+            <div className="photo-review-image"><video src={motionClip.videoUrl} controls autoPlay loop muted playsInline /></div>
+            <div className="motion-review-actions"><button onClick={() => downloadMotionBlob(motionClip.videoBlob, 'webm')}><Download size={17} /> Tải Video</button><button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={17} /> Tải GIF</button></div>
           </div>
         </div>
       )}

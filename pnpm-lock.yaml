@@ -14,6 +14,9 @@ importers:
       '@vercel/analytics':
         specifier: 2.0.1
         version: 2.0.1(react@19.1.1)
+      gifenc:
+        specifier: 1.0.3
+        version: 1.0.3
       lucide-react:
         specifier: 0.468.0
         version: 0.468.0(react@19.1.1)
@@ -662,6 +665,9 @@ packages:
   gensync@1.0.0-beta.2:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
     engines: {node: '>=6.9.0'}
+
+  gifenc@1.0.3:
+    resolution: {integrity: sha512-xdr6AdrfGBcfzncONUOlXMBuc5wJDtOueE3c5rdG0oNgtINLD+f2iFZltrBRZYzACRbKr+mSVU/x98zv2u3jmw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -1430,6 +1436,8 @@ snapshots:
     optional: true
 
   gensync@1.0.0-beta.2: {}
+
+  gifenc@1.0.3: {}
 
   js-tokens@4.0.0: {}
 

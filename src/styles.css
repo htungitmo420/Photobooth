@@ -73,12 +73,22 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .layout-option:hover { transform: translateY(-1px); border-color: #d8b8a9; }
 .layout-option.selected { border-color: var(--coral); background: #fff7f3; box-shadow: 0 0 0 2px rgba(232,93,68,.08); }
 .layout-option strong, .layout-option small { display: block; }
+.layout-option strong { display: flex; align-items: center; gap: 7px; }
 .layout-option small { color: var(--muted); margin-top: 4px; }
+.beta-badge { display: inline-flex; align-items: center; min-height: 19px; border-radius: 999px; padding: 2px 7px; color: #8e3f2f; background: #ffe1d8; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .layout-icon { width: 42px; height: 54px; display: grid; gap: 3px; padding: 4px; border: 2px solid #c7b6a5; background: #fff; }
 .layout-icon i { display: block; background: #d9c6b3; }
 .layout-icon.grid { grid-template-columns: 1fr 1fr; }
 .layout-icon.polaroid { display: block; padding: 4px 4px 11px; box-shadow: 0 2px 5px rgba(60,45,30,.12); }
 .layout-icon.polaroid i { width: 100%; height: 100%; }
+.capture-mode-setting { display: grid; gap: 7px; margin-top: 13px; color: var(--muted); font-size: 11px; }
+.capture-mode-setting > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.capture-mode-setting button { min-width: 0; min-height: 52px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: white; color: var(--ink); text-align: left; cursor: pointer; }
+.capture-mode-setting button.selected { border-color: var(--coral); background: #fff7f3; box-shadow: inset 0 0 0 1px rgba(232,93,68,.12); }
+.capture-mode-setting button > span { min-width: 0; }
+.capture-mode-setting strong, .capture-mode-setting small { display: block; }
+.capture-mode-setting strong { font-size: 12px; }
+.capture-mode-setting small { margin-top: 2px; color: var(--muted); font-size: 9px; }
 .quick-settings { display: flex; gap: 10px; margin: 20px 0; }
 .quick-settings label, .toggle { flex: 1; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: white; padding: 8px 12px; font-size: 12px; }
 .quick-settings label { display: flex; align-items: center; justify-content: space-between; }
@@ -110,6 +120,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .pause-overlay { position: absolute; z-index: 4; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: white; background: rgba(22, 17, 14, .78); backdrop-filter: blur(6px); pointer-events: none; }
 .pause-overlay strong { font-family: 'Playfair Display', serif; font-size: clamp(28px, 4vw, 48px); }
 .pause-overlay span { font-size: 13px; }
+.motion-recording { position: absolute; z-index: 2; right: 16px; top: 16px; display: flex; align-items: center; gap: 7px; border-radius: 999px; padding: 8px 11px; color: white; background: rgba(20,16,14,.72); backdrop-filter: blur(8px); font-size: 11px; }
+.motion-recording i { width: 9px; height: 9px; border-radius: 50%; background: #ff5037; box-shadow: 0 0 0 4px rgba(255,80,55,.18); animation: recording-pulse 1s ease-in-out infinite; }
+.motion-recording span { color: #f6d5cd; font-variant-numeric: tabular-nums; }
+.motion-encoding { position: absolute; z-index: 5; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: white; background: rgba(22,17,14,.76); backdrop-filter: blur(6px); }
+@keyframes recording-pulse { 50% { opacity: .45; transform: scale(.8); } }
 .flash { position: fixed; inset: 0; background: #fffdf7; opacity: .98; z-index: 1000; pointer-events: none; }
 @keyframes flash { from { opacity: .95; } to { opacity: 0; } }
 .camera-progress { position: absolute; top: 16px; left: 16px; padding: 8px 12px; color: white; background: rgba(20,16,14,.65); backdrop-filter: blur(8px); border-radius: 999px; font-size: 12px; }
@@ -142,6 +157,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .photo-slots div { aspect-ratio: 4/3; display: grid; place-items: center; overflow: hidden; border: 1px dashed #cdbdab; border-radius: 12px; color: #a68f7b; background: #f8efe3; }
 .photo-slots img { width: 100%; height: 100%; object-fit: cover; }
 .photo-slots .filled { border-style: solid; border-color: #8aaa8f; }
+.photo-slots .motion-slot { display: flex; aspect-ratio: auto; min-height: 44px; grid-column: 1 / -1; flex-direction: row; gap: 7px; border-style: dashed; font-size: 11px; }
+.photo-slots .motion-slot.filled { border-style: solid; }
 .text-button { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 8px; color: var(--muted); background: transparent; cursor: pointer; }
 .text-button.centered { margin: 12px auto 0; }
 
@@ -169,11 +186,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .sticker-direct-control.resize { right: -15px; bottom: -15px; cursor: nwse-resize; }
 .retake-row { position: relative; z-index: 1; width: min(430px, 100%); display: flex; gap: 8px; margin-top: 15px; background: #fff8ef; }
 .retake-row button { flex: 1; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; }
-.retake-row img { width: 100%; aspect-ratio: 4/3; display: block; object-fit: cover; }
+.retake-row img, .retake-row video { width: 100%; aspect-ratio: 4/3; display: block; object-fit: cover; background: #211d1a; }
 .retake-row span { display: flex; justify-content: center; align-items: center; gap: 4px; padding: 6px 2px; font-size: 10px; }
 .preview-column.collage-mode .retake-row { justify-content: center; }
 .preview-column.collage-mode .retake-row button { flex: 0 1 96px; }
 .preview-column.collage-mode .retake-row img { height: 68px; aspect-ratio: auto; }
+.preview-column.collage-mode .retake-row video { height: 68px; aspect-ratio: auto; }
 .editor-panel { min-height: 0; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 36px; }
 .editor-title { display: flex; align-items: flex-start; justify-content: space-between; }
 .editor-title h1 { font-size: 39px; }
@@ -270,13 +288,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .collage-tools > div { display: flex; gap: 5px; }
 .collage-tools button { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: white; cursor: pointer; }
 .hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
-.download-card { margin-top: 24px; padding: 17px; border-radius: 16px; background: var(--cream); }
+.export-stack { flex: 0 0 auto; display: grid; gap: 8px; margin-top: auto; }
+.download-card { margin-top: 0; padding: 17px; border-radius: 16px; background: var(--cream); }
 .download-card > div:first-child { display: flex; align-items: center; gap: 10px; }
 .download-card strong, .download-card small { display: block; }
 .download-card small { margin-top: 2px; color: var(--muted); font-size: 10px; }
 .format-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 14px 0; padding: 4px; border-radius: 10px; background: #e8dccd; }
 .format-switch button { border: 0; border-radius: 7px; padding: 7px; background: transparent; cursor: pointer; }
 .format-switch button.selected { background: white; box-shadow: 0 2px 7px rgba(68,43,30,.1); }
+.motion-export-card { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #d8c9b8; border-radius: 14px; padding: 9px 12px; background: #fff8ef; }
+.motion-export-card > div { display: flex; align-items: center; gap: 8px; }
+.motion-export-card strong, .motion-export-card small { display: block; }
+.motion-export-card small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.motion-export-card button, .motion-review-actions button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); border-radius: 9px; padding: 0 11px; background: white; color: var(--ink); font-weight: 700; cursor: pointer; }
 .spin { animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -307,9 +331,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .photo-review-head > button, .photo-review-actions > button:not(.retake-button) { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: white; cursor: pointer; }
 .photo-review-image { min-height: 0; display: grid; place-items: center; overflow: hidden; border-radius: 16px; background: #211d1a; }
 .photo-review-image img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.photo-review-image video { width: 100%; height: 100%; display: block; object-fit: contain; }
 .photo-review-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .photo-review-actions button:disabled { opacity: .35; cursor: not-allowed; }
 .photo-review-actions .retake-button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 0 22px; background: var(--coral); color: white; font-weight: 700; cursor: pointer; }
+.motion-review-actions { display: flex; justify-content: center; gap: 10px; }
 
 @media (min-width: 921px) {
   .app-shell { padding-bottom: 18px; }
@@ -324,14 +350,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .sample-strip div { height: 58px; margin-bottom: 5px; }
   .sample-strip div span { font-size: 27px; }
   .sample-strip strong { margin-top: 7px; font-size: 10px; }
-  .setup-panel { min-height: 0; overflow-y: auto; padding: clamp(22px, 2.5vw, 30px); }
-  .panel-heading { margin-bottom: 16px; }
-  .layout-options { gap: 8px; }
-  .layout-option { min-height: 68px; padding: 8px 13px; }
-  .layout-icon { height: 46px; }
-  .quick-settings { margin: 14px 0; }
-  .flash-setting { margin: -2px 0 14px; }
-  .permission-copy { margin-top: 9px; }
+  .setup-panel { min-height: 0; overflow-y: auto; padding: clamp(18px, 2.2vw, 26px); }
+  .panel-heading { margin-bottom: 10px; }
+  .layout-options { gap: 7px; }
+  .layout-option { min-height: 61px; padding: 6px 12px; }
+  .layout-icon { height: 42px; }
+  .capture-mode-setting { margin-top: 9px; }
+  .capture-mode-setting button { min-height: 46px; padding-block: 6px; }
+  .quick-settings { margin: 10px 0; }
+  .flash-setting { margin: -2px 0 10px; }
+  .permission-copy { margin-top: 7px; }
   .capture-layout { grid-template-columns: minmax(0, 1.6fr) minmax(250px, .6fr); }
   .camera-card { min-height: 0; display: flex; flex-direction: column; }
   .camera-stage { flex: 1 1 auto; min-height: 0; aspect-ratio: auto; }
@@ -356,7 +384,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .frame-option > button:first-child, .frame-grid > .add-frame { gap: 7px; min-height: 60px; padding: 7px; font-size: 12px; }
   .frame-grid i, .frame-grid img { width: 30px; height: 36px; flex-basis: 30px; }
   .sticker-library { max-height: 220px; }
-  .download-card { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 140px 160px; align-items: center; gap: 10px; margin-top: auto; padding: 11px; }
+  .download-card { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 140px 160px; align-items: center; gap: 10px; margin-top: 0; padding: 11px; }
   .download-card .format-switch { margin: 0; }
   .download-card .primary-button { min-height: 42px; }
 }
@@ -392,6 +420,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .sample-strip { display: none; }
   .setup-panel, .editor-panel, .capture-side { padding: 24px 18px; border-radius: 21px; }
   .layout-options { grid-template-columns: 1fr; }
+  .capture-mode-setting > div { grid-template-columns: 1fr; }
   .quick-settings { flex-direction: column; }
   .camera-card { padding: 8px; border-radius: 22px; }
   .camera-stage { min-height: 0; border-radius: 16px; }
@@ -420,6 +449,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .collage-presets { grid-template-columns: 1fr; }
   .collage-tools { grid-template-columns: 1fr 1fr; }
   .collage-tools > div { grid-column: 1 / -1; justify-content: flex-end; }
+  .motion-export-card { align-items: stretch; flex-direction: column; }
+  .motion-export-card > div:last-child { display: grid; grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

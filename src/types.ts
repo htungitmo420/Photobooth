@@ -12,6 +12,7 @@ export interface BoothLayout {
   width: number
   height: number
   kind: 'strip' | 'grid' | 'polaroid'
+  badge?: string
 }
 
 export interface FrameConfig {
