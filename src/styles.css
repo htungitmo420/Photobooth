@@ -168,6 +168,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .retake-row button { flex: 1; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; }
 .retake-row img { width: 100%; aspect-ratio: 4/3; display: block; object-fit: cover; }
 .retake-row span { display: flex; justify-content: center; align-items: center; gap: 4px; padding: 6px 2px; font-size: 10px; }
+.preview-column.collage-mode .retake-row { justify-content: center; }
+.preview-column.collage-mode .retake-row button { flex: 0 1 96px; }
+.preview-column.collage-mode .retake-row img { height: 68px; aspect-ratio: auto; }
 .editor-panel { min-height: 0; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 36px; }
 .editor-title { display: flex; align-items: flex-start; justify-content: space-between; }
 .editor-title h1 { font-size: 39px; }
@@ -216,6 +219,51 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .sticker-tools button { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: white; cursor: pointer; }
 .sticker-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sticker-footer button { border: 0; background: transparent; color: var(--coral-dark); font-size: 12px; cursor: pointer; }
+.collage-preview-shell { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; }
+.collage-stage { position: relative; max-width: 100%; max-height: 100%; overflow: hidden; box-shadow: 0 24px 64px rgba(72,48,32,.22); touch-action: none; isolation: isolate; }
+.collage-open-preview { position: absolute; top: 8px; right: 8px; z-index: 20; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,.8); border-radius: 999px; padding: 0 12px; background: rgba(35,29,25,.76); color: white; box-shadow: 0 5px 18px rgba(30,20,14,.2); backdrop-filter: blur(8px); cursor: pointer; }
+.collage-open-preview svg { width: 16px; height: 16px; }
+.collage-item { position: absolute; container-type: inline-size; transform-origin: center; pointer-events: none; }
+.collage-item.selected::after { content: ''; position: absolute; inset: -5px; border: 1px dashed rgba(255,255,255,.95); border-radius: 5px; box-shadow: 0 0 0 1px rgba(48,31,22,.35); pointer-events: none; }
+.collage-item-body { width: 100%; height: 100%; display: grid; place-items: center; overflow: hidden; border: 0; padding: 0; background: transparent; cursor: grab; touch-action: none; pointer-events: auto; }
+.collage-item-body:active { cursor: grabbing; }
+.collage-item-body img { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; }
+.collage-item-body span { padding: 8px; color: white; font-size: 9px; text-align: center; }
+.collage-direct-control { position: absolute; z-index: 4; width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid white; border-radius: 50%; padding: 0; background: var(--coral); color: white; box-shadow: 0 3px 10px rgba(30,20,14,.3); cursor: pointer; pointer-events: auto; touch-action: none; }
+.collage-direct-control svg { width: 13px; height: 13px; }
+.collage-direct-control.rotate { left: -16px; top: -16px; cursor: grab; }
+.collage-direct-control.remove { right: -16px; top: -16px; background: #2d2926; }
+.collage-direct-control.resize { right: -16px; bottom: -16px; cursor: nwse-resize; }
+.editor-background { min-height: 0; overflow-y: auto; }
+.collage-heading { margin-top: 17px; }
+.collage-formats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 10px; }
+.pattern-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; }
+.collage-formats button, .pattern-switch button, .collage-presets button { min-height: 40px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; background: white; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+.collage-formats button.selected, .pattern-switch button.selected { border-color: var(--coral); background: #fff6f2; color: var(--coral-dark); }
+.color-picker { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; cursor: pointer; }
+.color-picker input { width: 28px; height: 28px; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.background-swatches { display: grid; grid-template-columns: repeat(7, minmax(30px, 1fr)); gap: 8px; margin-top: 10px; }
+.background-swatches button { aspect-ratio: 1; border: 2px solid white; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.background-swatches button.selected { box-shadow: 0 0 0 2px var(--coral); }
+.local-background-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.local-background-grid > button, .local-background-option > button:first-child { min-height: 64px; display: grid; place-items: center; gap: 4px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; padding: 5px; background: white; color: var(--muted); font-size: 10px; cursor: pointer; }
+.local-background-grid > button.selected, .local-background-option > button:first-child.selected { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); color: var(--coral-dark); }
+.background-color-only span { width: 32px; height: 26px; border-radius: 5px; box-shadow: 0 0 0 1px var(--line); }
+.local-background-option { position: relative; min-width: 0; }
+.local-background-option > button:first-child { width: 100%; }
+.local-background-option img { width: 100%; height: 38px; display: block; border-radius: 5px; object-fit: cover; }
+.local-background-option span { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.local-background-option .delete-background { position: absolute; top: -5px; right: -5px; width: 23px; height: 23px; display: grid; place-items: center; border: 0; border-radius: 50%; padding: 0; background: #fff1ed; color: var(--coral-dark); box-shadow: 0 2px 7px rgba(68,43,30,.16); cursor: pointer; }
+.add-background { border-style: dashed !important; color: var(--coral-dark) !important; }
+.hint.compact { margin-top: 7px; font-size: 10px; }
+.collage-presets { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+.collage-presets button.accent { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--coral); color: var(--coral-dark); }
+.collage-presets button:disabled, .collage-tools button:disabled { opacity: .42; cursor: not-allowed; }
+.collage-tools { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 10px; margin-top: 12px; padding: 11px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.collage-tools label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; }
+.collage-tools input { width: 100%; accent-color: var(--coral); }
+.collage-tools > div { display: flex; gap: 5px; }
+.collage-tools button { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: white; cursor: pointer; }
 .hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .download-card { margin-top: 24px; padding: 17px; border-radius: 16px; background: var(--cream); }
 .download-card > div:first-child { display: flex; align-items: center; gap: 10px; }
@@ -241,6 +289,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .preview-modal-transform { width: 100%; height: 100%; min-width: 0; max-width: 100%; display: grid; place-items: center; transform-origin: center; transition: transform .12s ease-out; will-change: transform; }
 .preview-modal-image:active .preview-modal-transform { transition: none; }
 .preview-modal-image .strip-preview { width: auto; height: 100%; max-width: 100%; max-height: 100%; box-shadow: 0 15px 50px rgba(0,0,0,.22); }
+.collage-final-preview { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; }
+.collage-final-preview canvas { display: block; max-width: 100%; max-height: 100%; box-shadow: 0 15px 50px rgba(0,0,0,.22); }
 .preview-modal-image .strip-preview canvas { cursor: grab; }
 .preview-modal-image:active .strip-preview canvas { cursor: grabbing; }
 .preview-modal-card > p { margin: 0; color: var(--muted); text-align: center; font-size: 12px; }
@@ -290,7 +340,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .editor-title { flex: 0 0 auto; }
   .editor-title h1 { font-size: 32px; }
   .editor-design { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-areas: 'filters frames' 'caption frames'; column-gap: 22px; align-content: start; }
-  .editor-stickers { min-height: 0; overflow-y: auto; }
+  .editor-stickers, .editor-background { min-height: 0; overflow-y: auto; }
   .filter-section { grid-area: filters; }
   .frame-section { grid-area: frames; }
   .caption-section { grid-area: caption; }
@@ -359,6 +409,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .preview-modal-actions output { display: none; }
   .photo-review-modal { padding: 10px; }
   .photo-review-card { height: 94vh; padding: 14px; border-radius: 18px; }
+  .editor-tabs button { padding-inline: 6px; font-size: 12px; }
+  .collage-formats { grid-template-columns: 1fr 1fr; }
+  .local-background-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .collage-presets { grid-template-columns: 1fr; }
+  .collage-tools { grid-template-columns: 1fr 1fr; }
+  .collage-tools > div { grid-column: 1 / -1; justify-content: flex-end; }
 }
 
 @media (prefers-reduced-motion: reduce) {

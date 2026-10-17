@@ -32,7 +32,7 @@ values
     'film_4x1.png', 'strip4', 793, 1983, true, 30
   ),
   (
-    'polaroid-social', 'Polaroid', 'Khung một ảnh phong cách mạng xã hội',
+    'polaroid-social', 'Polaroid mạng xã hội', 'Khung một ảnh phong cách mạng xã hội',
     '{"background":"#ffffff","accent":"#111111","textColor":"#111111","radius":0}'::jsonb,
     'polaroid.png', 'polaroid', 1429, 1100, true, 20
   )

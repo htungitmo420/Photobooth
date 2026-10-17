@@ -6,17 +6,30 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
 import { suggestedZoomMode, type ZoomMode } from './cameraSource'
+import {
+  COLLAGE_FORMATS, DEFAULT_COLLAGE_BACKGROUND, MAX_COLLAGE_ITEMS, createSingleCollageItem,
+  createTwoStripCollage, getCollageSize, type CollageItem, type CollageSettings,
+} from './collage'
+import { CollageEditor } from './components/CollageEditor'
+import { CollagePreview } from './components/CollagePreview'
 import { getFrameSize } from './frameSize'
 import { StripPreview } from './components/StripPreview'
 import { useCamera } from './hooks/useCamera'
 import { loadFrames } from './lib/frames'
 import { deleteLocalFrame, loadLocalFrames, revokeFrameUrls, saveLocalFrame } from './lib/localFrames'
+import {
+  deleteLocalBackground, loadLocalBackgrounds, revokeBackgroundUrls, saveLocalBackground,
+  type LocalBackground,
+} from './lib/localBackgrounds'
+import { loadRemoteBackgrounds, type RemoteBackground } from './lib/backgrounds'
 import { loadStickers } from './lib/stickers'
 import { FILTERS, FALLBACK_FRAMES, FALLBACK_STICKERS, LAYOUTS, STICKER_CATEGORIES } from './presets'
-import { downloadStrip } from './rendering'
+import { downloadCollage, downloadStrip } from './rendering'
 import type { AppStep, BoothFrame, BoothSession, BoothSticker, CapturedPhoto, FilterId, FlashMode, StickerAsset, StickerCategory } from './types'
 
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
+
+const COLLAGE_BACKGROUNDS = ['#5a3822', '#171717', '#f4e7d3', '#d98282', '#6c7c63', '#596b8d', '#f7f2ea']
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -75,8 +88,18 @@ export default function App() {
   const [stickers, setStickers] = useState<BoothSticker[]>([])
   const [stickerAssets, setStickerAssets] = useState<StickerAsset[]>(FALLBACK_STICKERS)
   const [stickerCategory, setStickerCategory] = useState<'all' | StickerCategory>('all')
-  const [editorPanelTab, setEditorPanelTab] = useState<'design' | 'stickers'>('design')
+  const [editorPanelTab, setEditorPanelTab] = useState<'design' | 'stickers' | 'background'>('design')
   const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null)
+  const [collageSettings, setCollageSettings] = useState<CollageSettings>(() => ({
+    format: 'story',
+    background: DEFAULT_COLLAGE_BACKGROUND,
+    pattern: 'solid',
+    items: [createSingleCollageItem('collage-main')],
+  }))
+  const [selectedCollageItemId, setSelectedCollageItemId] = useState<string | null>('collage-main')
+  const [localBackgrounds, setLocalBackgrounds] = useState<LocalBackground[]>([])
+  const [remoteBackgrounds, setRemoteBackgrounds] = useState<RemoteBackground[]>([])
+  const [remoteBackgroundSource, setRemoteBackgroundSource] = useState(false)
   const [remoteStickers, setRemoteStickers] = useState(false)
   const [sessionDate, setSessionDate] = useState(() => new Date())
   const [format, setFormat] = useState<'png' | 'jpeg'>('png')
@@ -88,11 +111,12 @@ export default function App() {
   const cancelRef = useRef(0)
   const pausedRef = useRef(false)
   const frameInputRef = useRef<HTMLInputElement>(null)
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
   const previewDragRef = useRef<{ pointerId: number; x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const camera = useCamera()
   const cameraLabel = camera.devices.find((device) => device.deviceId === camera.selectedDeviceId)?.label ?? ''
   const zoomMode = zoomModeOverride ?? suggestedZoomMode(cameraLabel)
-  const outputSize = getFrameSize(layout, frame)
+  const outputSize = editorPanelTab === 'background' ? getCollageSize(collageSettings.format) : getFrameSize(layout, frame)
 
   const setNotice = useCallback((message: string | null) => {
     if (message === null) {
@@ -124,6 +148,27 @@ export default function App() {
     return () => {
       disposed = true
       revokeFrameUrls(localFrameUrls)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadRemoteBackgrounds().then((catalog) => {
+      setRemoteBackgrounds(catalog.backgrounds)
+      setRemoteBackgroundSource(catalog.remote)
+    })
+  }, [])
+
+  useEffect(() => {
+    let disposed = false
+    let loadedBackgrounds: LocalBackground[] = []
+    loadLocalBackgrounds().then((backgrounds) => {
+      loadedBackgrounds = backgrounds
+      if (disposed) revokeBackgroundUrls(backgrounds)
+      else setLocalBackgrounds(backgrounds)
+    }).catch(() => { /* Local backgrounds are optional. */ })
+    return () => {
+      disposed = true
+      revokeBackgroundUrls(loadedBackgrounds)
     }
   }, [])
 
@@ -198,6 +243,7 @@ export default function App() {
     [stickerAssets, stickerCategory],
   )
   const selectedSticker = stickers.find((item) => item.id === selectedStickerId) ?? null
+  const selectedCollageItem = collageSettings.items.find((item) => item.id === selectedCollageItemId) ?? null
 
   useEffect(() => {
     if (frame.layoutId && frame.layoutId !== layout.id) setFrame(FALLBACK_FRAMES[0])
@@ -346,6 +392,15 @@ export default function App() {
     setRetakeIndex(null)
     setNotice(null)
     setSelectedStickerId(null)
+    setCollageSettings({
+      format: 'story',
+      background: DEFAULT_COLLAGE_BACKGROUND,
+      backgroundImageUrl: undefined,
+      pattern: 'solid',
+      items: [createSingleCollageItem('collage-main')],
+    })
+    setSelectedCollageItemId('collage-main')
+    setEditorPanelTab('design')
     setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
     setPreviewOpen(false)
     setPhotoPreviewIndex(null)
@@ -397,6 +452,59 @@ export default function App() {
     removeSticker(selectedStickerId)
   }
 
+  const updateCollageItem = (id: string, changes: Partial<CollageItem>) => {
+    setCollageSettings((current) => ({
+      ...current,
+      items: current.items.map((item) => item.id === id ? { ...item, ...changes } : item),
+    }))
+  }
+
+  const moveCollageItem = (id: string, x: number, y: number) => {
+    updateCollageItem(id, { x, y })
+  }
+
+  const removeCollageItem = (id: string) => {
+    if (collageSettings.items.length <= 1) {
+      setNotice('Nền ghép cần giữ lại ít nhất một bản photobooth.')
+      return
+    }
+    const next = collageSettings.items.filter((item) => item.id !== id)
+    setCollageSettings((current) => ({ ...current, items: next }))
+    setSelectedCollageItemId((selected) => selected === id ? next[next.length - 1]?.id ?? null : selected)
+  }
+
+  const duplicateCollageItem = () => {
+    if (collageSettings.items.length >= MAX_COLLAGE_ITEMS) {
+      setNotice(`Nền ghép dùng tối đa ${MAX_COLLAGE_ITEMS} bản photobooth.`)
+      return
+    }
+    const source = collageSettings.items.find((item) => item.id === selectedCollageItemId) ?? collageSettings.items.at(-1)
+    if (!source) return
+    const id = makeId('collage')
+    const duplicate: CollageItem = {
+      ...source,
+      id,
+      x: Math.min(1.05, source.x + 0.07),
+      y: Math.min(1.05, source.y + 0.05),
+      rotation: source.rotation + 4,
+      zIndex: Math.max(...collageSettings.items.map((item) => item.zIndex), 0) + 1,
+    }
+    setCollageSettings((current) => ({ ...current, items: [...current.items, duplicate] }))
+    setSelectedCollageItemId(id)
+  }
+
+  const useSingleCollage = () => {
+    const item = createSingleCollageItem(makeId('collage'))
+    setCollageSettings((current) => ({ ...current, items: [item] }))
+    setSelectedCollageItemId(item.id)
+  }
+
+  const useTwoStripCollage = () => {
+    const items = createTwoStripCollage([makeId('collage'), makeId('collage')])
+    setCollageSettings((current) => ({ ...current, items }))
+    setSelectedCollageItemId(items[1].id)
+  }
+
   const handleZoom = (value: number) => {
     setCameraTransform((current) => ({ ...current, zoom: value }))
   }
@@ -429,11 +537,34 @@ export default function App() {
     setNotice('Đã xóa frame khỏi trình duyệt.')
   }
 
+  const addLocalBackground = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      const added = await saveLocalBackground(file)
+      setLocalBackgrounds((current) => [added, ...current])
+      setCollageSettings((current) => ({ ...current, backgroundImageUrl: added.url }))
+      setNotice('Đã lưu nền ghép vào trình duyệt này.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Không thể lưu nền ghép.')
+    }
+  }
+
+  const removeLocalBackground = async (item: LocalBackground) => {
+    await deleteLocalBackground(item.id)
+    setCollageSettings((current) => current.backgroundImageUrl === item.url ? { ...current, backgroundImageUrl: undefined } : current)
+    setLocalBackgrounds((current) => current.filter((candidate) => candidate.id !== item.id))
+    URL.revokeObjectURL(item.url)
+    setNotice('Đã xóa nền ghép khỏi trình duyệt.')
+  }
+
   const exportPhoto = async () => {
     setExporting(true)
     setNotice(null)
     try {
-      await downloadStrip(session, format)
+      if (editorPanelTab === 'background') await downloadCollage(session, collageSettings, format)
+      else await downloadStrip(session, format)
       setNotice('Ảnh đã được tạo. Nếu chưa thấy file, hãy kiểm tra mục Tải xuống.')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Xuất ảnh thất bại. Hãy thử lại.')
@@ -556,10 +687,21 @@ export default function App() {
 
       {step === 'edit' && (
         <section className="editor-layout">
-          <div className="preview-column">
-            <p className="eyebrow">Bản ảnh của bạn</p>
+          <div className={`preview-column ${editorPanelTab === 'background' ? 'collage-mode' : ''}`}>
+            <p className="eyebrow">{editorPanelTab === 'background' ? 'Nền ghép của bạn' : 'Bản ảnh của bạn'}</p>
             <div className="preview-stage">
-              <StripPreview session={session} interactive onMoveSticker={moveSticker} onUpdateSticker={updateSticker} onRemoveSticker={removeSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={openPreview} />
+              {editorPanelTab === 'background'
+                ? <CollageEditor
+                    session={session}
+                    settings={collageSettings}
+                    selectedId={selectedCollageItemId}
+                    onSelect={setSelectedCollageItemId}
+                    onMove={moveCollageItem}
+                    onUpdate={updateCollageItem}
+                    onRemove={removeCollageItem}
+                    onPreview={openPreview}
+                  />
+                : <StripPreview session={session} interactive onMoveSticker={moveSticker} onUpdateSticker={updateSticker} onRemoveSticker={removeSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={openPreview} />}
             </div>
             <div className="retake-row">
               {photos.map((photo, index) => <button key={photo.id} onClick={() => setPhotoPreviewIndex(index)}><img src={photo.dataUrl} alt="" /><span><ImageIcon size={13} /> Xem ảnh {index + 1}</span></button>)}
@@ -571,6 +713,7 @@ export default function App() {
             <div className="editor-tabs" role="group" aria-label="Tùy chỉnh ảnh">
               <button aria-pressed={editorPanelTab === 'design'} className={editorPanelTab === 'design' ? 'selected' : ''} onClick={() => setEditorPanelTab('design')}>Bộ lọc & khung</button>
               <button aria-pressed={editorPanelTab === 'stickers'} className={editorPanelTab === 'stickers' ? 'selected' : ''} onClick={() => setEditorPanelTab('stickers')}>Sticker {stickers.length > 0 && `(${stickers.length})`}</button>
+              <button aria-pressed={editorPanelTab === 'background'} className={editorPanelTab === 'background' ? 'selected' : ''} onClick={() => setEditorPanelTab('background')}>Nền ghép {collageSettings.items.length > 1 && `(${collageSettings.items.length})`}</button>
             </div>
 
             {editorPanelTab === 'design' && <div className="editor-design">
@@ -606,7 +749,56 @@ export default function App() {
             </section>
             </div>}
 
-            <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>Ảnh chất lượng cao</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : 'Tải ảnh về'}</button></section>
+            {editorPanelTab === 'background' && <div className="editor-background">
+              <section className="control-section collage-section">
+                <div className="section-line"><h3>Khổ nền</h3><span>{outputSize.width} × {outputSize.height} px</span></div>
+                <div className="collage-formats">
+                  {COLLAGE_FORMATS.map((item) => <button key={item.id} className={collageSettings.format === item.id ? 'selected' : ''} onClick={() => setCollageSettings((current) => ({ ...current, format: item.id }))}>{item.name}</button>)}
+                </div>
+
+                <div className="section-line collage-heading"><h3>Màu & họa tiết</h3><label className="color-picker" title="Chọn màu nền"><input type="color" value={collageSettings.background} onChange={(event) => setCollageSettings((current) => ({ ...current, background: event.target.value }))} /><span>Màu tùy chỉnh</span></label></div>
+                <div className="background-swatches">
+                  {COLLAGE_BACKGROUNDS.map((color) => <button key={color} className={collageSettings.background === color ? 'selected' : ''} style={{ background: color }} onClick={() => setCollageSettings((current) => ({ ...current, background: color }))} aria-label={`Chọn màu nền ${color}`} />)}
+                </div>
+                <div className="section-line collage-heading"><h3>Nền ảnh</h3><span className={remoteBackgroundSource ? 'source online' : 'source'}>{remoteBackgroundSource ? 'Supabase + máy' : 'Trên máy'}</span></div>
+                <div className="local-background-grid">
+                  <button className={!collageSettings.backgroundImageUrl ? 'selected background-color-only' : 'background-color-only'} onClick={() => setCollageSettings((current) => ({ ...current, backgroundImageUrl: undefined }))}><span style={{ background: collageSettings.background }} />Chỉ dùng màu</button>
+                  {remoteBackgrounds.map((item) => <div className="local-background-option remote" key={item.id}>
+                    <button className={collageSettings.backgroundImageUrl === item.url ? 'selected' : ''} onClick={() => setCollageSettings((current) => ({ ...current, backgroundImageUrl: item.url }))} title={item.name}><img src={item.url} alt="" /><span>{item.name}</span></button>
+                  </div>)}
+                  {localBackgrounds.map((item) => <div className="local-background-option" key={item.id}>
+                    <button className={collageSettings.backgroundImageUrl === item.url ? 'selected' : ''} onClick={() => setCollageSettings((current) => ({ ...current, backgroundImageUrl: item.url }))} title={item.name}><img src={item.url} alt="" /><span>{item.name}</span></button>
+                    <button className="delete-background" onClick={() => void removeLocalBackground(item)} aria-label={`Xóa nền ${item.name}`}><Trash2 size={13} /></button>
+                  </div>)}
+                  <button className="add-background" onClick={() => backgroundInputRef.current?.click()}><Plus size={17} /> Thêm nền</button>
+                </div>
+                <input ref={backgroundInputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={addLocalBackground} />
+                <p className="hint compact">PNG, JPG hoặc WebP tối đa 8 MB; ảnh được lưu riêng trong trình duyệt này.</p>
+                <div className="pattern-switch" role="group" aria-label="Họa tiết nền">
+                  {([['solid', 'Trơn'], ['dots', 'Chấm'], ['grid', 'Ô lưới']] as const).map(([value, label]) => <button key={value} className={collageSettings.pattern === value ? 'selected' : ''} onClick={() => setCollageSettings((current) => ({ ...current, pattern: value }))}>{label}</button>)}
+                </div>
+
+                <div className="section-line collage-heading"><h3>Xếp photobooth</h3><span>{collageSettings.items.length}/{MAX_COLLAGE_ITEMS} bản</span></div>
+                <div className="collage-presets">
+                  <button onClick={useSingleCollage}>Một bản giữa nền</button>
+                  <button onClick={useTwoStripCollage}>Hai dải chéo</button>
+                  <button className="accent" onClick={duplicateCollageItem} disabled={collageSettings.items.length >= MAX_COLLAGE_ITEMS}><Copy size={16} /> Lặp thêm</button>
+                </div>
+
+                {selectedCollageItem && <div className="collage-tools">
+                  <label>Kích thước<input type="range" min={.12} max={.95} step={.01} value={selectedCollageItem.width} onChange={(event) => updateCollageItem(selectedCollageItem.id, { width: Number(event.target.value) })} /></label>
+                  <label>Xoay<input type="range" min={-180} max={180} step={1} value={selectedCollageItem.rotation} onChange={(event) => updateCollageItem(selectedCollageItem.id, { rotation: Number(event.target.value) })} /></label>
+                  <div>
+                    <button onClick={() => updateCollageItem(selectedCollageItem.id, { zIndex: Math.max(...collageSettings.items.map((item) => item.zIndex), 0) + 1 })} title="Đưa lên trước"><Layers size={16} /></button>
+                    <button onClick={duplicateCollageItem} title="Lặp bản đang chọn" disabled={collageSettings.items.length >= MAX_COLLAGE_ITEMS}><Copy size={16} /></button>
+                    <button onClick={() => removeCollageItem(selectedCollageItem.id)} title="Xóa bản đang chọn" disabled={collageSettings.items.length <= 1}><Trash2 size={16} /></button>
+                  </div>
+                </div>}
+                <p className="hint">Kéo trực tiếp từng bản trên nền. Dùng các nút tròn trên bản được chọn để xoay, xóa hoặc đổi kích thước.</p>
+              </section>
+            </div>}
+
+            <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>{editorPanelTab === 'background' ? 'Ảnh nền ghép chất lượng cao' : 'Ảnh chất lượng cao'}</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : editorPanelTab === 'background' ? 'Tải ảnh ghép' : 'Tải ảnh về'}</button></section>
 
           </div>
         </section>
@@ -616,7 +808,7 @@ export default function App() {
         <div className="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewOpen(false) }}>
           <div className="preview-modal-card">
             <div className="preview-modal-head">
-              <div><p className="eyebrow">Bản hoàn chỉnh</p><h2 id="preview-title">Xem trước ảnh photobooth</h2></div>
+              <div><p className="eyebrow">Bản hoàn chỉnh</p><h2 id="preview-title">{editorPanelTab === 'background' ? 'Xem trước nền ghép' : 'Xem trước ảnh photobooth'}</h2></div>
               <div className="preview-modal-actions">
                 <button onClick={() => setReviewZoom(previewView.zoom - .25)} disabled={previewView.zoom <= .75} aria-label="Thu nhỏ"><ZoomOut /></button>
                 <output aria-live="polite">{Math.round(previewView.zoom * 100)}%</output>
@@ -652,7 +844,11 @@ export default function App() {
               onPointerUp={(event) => { if (previewDragRef.current?.pointerId === event.pointerId) previewDragRef.current = null }}
               onPointerCancel={(event) => { if (previewDragRef.current?.pointerId === event.pointerId) previewDragRef.current = null }}
             >
-              <div className="preview-modal-transform" style={{ transform: `translate(${previewView.x}px, ${previewView.y}px) scale(${previewView.zoom})` }}><StripPreview session={session} /></div>
+              <div className="preview-modal-transform" style={{ transform: `translate(${previewView.x}px, ${previewView.y}px) scale(${previewView.zoom})` }}>
+                {editorPanelTab === 'background'
+                  ? <CollagePreview session={session} settings={collageSettings} />
+                  : <StripPreview session={session} />}
+              </div>
             </div>
             <p>Dùng nút +/− hoặc con lăn để zoom; kéo ảnh hay dùng phím mũi tên để di chuyển, nhấp đúp để đặt lại.</p>
           </div>
