@@ -1,5 +1,6 @@
 export type CollageFormatId = 'landscape' | 'square' | 'portrait' | 'story'
 export type CollagePattern = 'solid' | 'dots' | 'grid'
+export type CollageMessagePosition = 'top' | 'bottom'
 
 export interface CollageItem {
   id: string
@@ -15,6 +16,9 @@ export interface CollageSettings {
   background: string
   backgroundImageUrl?: string
   pattern: CollagePattern
+  message: string
+  messageColor: string
+  messagePosition: CollageMessagePosition
   items: CollageItem[]
 }
 

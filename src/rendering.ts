@@ -224,6 +224,49 @@ function drawCollagePattern(context: CanvasRenderingContext2D, width: number, he
   }
 }
 
+function drawCollageMessage(context: CanvasRenderingContext2D, width: number, height: number, settings: CollageSettings) {
+  const message = settings.message.trim()
+  if (!message) return
+
+  const fontSize = Math.max(24, width * 0.045)
+  const maxWidth = width * 0.84
+  const words = message.split(/\s+/)
+  const lines: string[] = []
+  let line = ''
+
+  context.save()
+  context.font = `700 ${fontSize}px system-ui, sans-serif`
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.fillStyle = settings.messageColor
+  context.shadowColor = 'rgba(0,0,0,.38)'
+  context.shadowBlur = Math.max(4, width * 0.006)
+  context.shadowOffsetY = Math.max(2, width * 0.002)
+
+  words.forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word
+    if (line && context.measureText(candidate).width > maxWidth && lines.length < 2) {
+      lines.push(line)
+      line = word
+    } else {
+      line = candidate
+    }
+  })
+  if (line) lines.push(line)
+
+  const lineHeight = fontSize * 1.18
+  const blockHeight = lineHeight * lines.length
+  const anchorY = settings.messagePosition === 'top' ? height * 0.07 : height * 0.93
+  const startY = settings.messagePosition === 'top'
+    ? anchorY
+    : anchorY - blockHeight + lineHeight
+
+  lines.slice(0, 3).forEach((text, index) => {
+    context.fillText(text, width / 2, startY + index * lineHeight, maxWidth)
+  })
+  context.restore()
+}
+
 export async function composeCollage(session: BoothSession, settings: CollageSettings, scale = 1) {
   const strip = await composeStrip(session)
   const output = getCollageSize(settings.format)
@@ -263,6 +306,7 @@ export async function composeCollage(session: BoothSession, settings: CollageSet
     context.drawImage(strip, -size.width / 2, -size.height / 2, size.width, size.height)
     context.restore()
   })
+  drawCollageMessage(context, width, height, settings)
 
   return canvas
 }

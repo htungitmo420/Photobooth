@@ -1,5 +1,5 @@
 import {
-  Camera, Check, ChevronLeft, ChevronRight, Copy, Download, FlipHorizontal2, Image as ImageIcon,
+  Camera, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, FlipHorizontal2, Image as ImageIcon,
   Layers, LoaderCircle, Pause, Play, Plus, RefreshCcw, RotateCcw, RotateCw, ShieldCheck,
   SwitchCamera, Trash2, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
@@ -94,6 +94,9 @@ export default function App() {
     format: 'story',
     background: DEFAULT_COLLAGE_BACKGROUND,
     pattern: 'solid',
+    message: '',
+    messageColor: '#ffffff',
+    messagePosition: 'bottom',
     items: [createSingleCollageItem('collage-main')],
   }))
   const [selectedCollageItemId, setSelectedCollageItemId] = useState<string | null>('collage-main')
@@ -397,6 +400,9 @@ export default function App() {
       background: DEFAULT_COLLAGE_BACKGROUND,
       backgroundImageUrl: undefined,
       pattern: 'solid',
+      message: '',
+      messageColor: '#ffffff',
+      messagePosition: 'bottom',
       items: [createSingleCollageItem('collage-main')],
     })
     setSelectedCollageItemId('collage-main')
@@ -688,7 +694,10 @@ export default function App() {
       {step === 'edit' && (
         <section className="editor-layout">
           <div className={`preview-column ${editorPanelTab === 'background' ? 'collage-mode' : ''}`}>
-            <p className="eyebrow">{editorPanelTab === 'background' ? 'Nền ghép của bạn' : 'Bản ảnh của bạn'}</p>
+            <div className="preview-column-toolbar">
+              <p className="eyebrow">{editorPanelTab === 'background' ? 'Nền ghép của bạn' : 'Bản ảnh của bạn'}</p>
+              <button className="preview-open-button" onClick={openPreview}><Eye size={17} /> Xem trước</button>
+            </div>
             <div className="preview-stage">
               {editorPanelTab === 'background'
                 ? <CollageEditor
@@ -699,7 +708,6 @@ export default function App() {
                     onMove={moveCollageItem}
                     onUpdate={updateCollageItem}
                     onRemove={removeCollageItem}
-                    onPreview={openPreview}
                   />
                 : <StripPreview session={session} interactive onMoveSticker={moveSticker} onUpdateSticker={updateSticker} onRemoveSticker={removeSticker} selectedStickerId={selectedStickerId} onSelectSticker={setSelectedStickerId} onPreview={openPreview} />}
             </div>
@@ -776,6 +784,12 @@ export default function App() {
                 <p className="hint compact">PNG, JPG hoặc WebP tối đa 8 MB; ảnh được lưu riêng trong trình duyệt này.</p>
                 <div className="pattern-switch" role="group" aria-label="Họa tiết nền">
                   {([['solid', 'Trơn'], ['dots', 'Chấm'], ['grid', 'Ô lưới']] as const).map(([value, label]) => <button key={value} className={collageSettings.pattern === value ? 'selected' : ''} onClick={() => setCollageSettings((current) => ({ ...current, pattern: value }))}>{label}</button>)}
+                </div>
+
+                <div className="section-line collage-heading"><h3>Lời nhắn trên nền</h3><label className="color-picker" title="Chọn màu chữ"><input type="color" value={collageSettings.messageColor} onChange={(event) => setCollageSettings((current) => ({ ...current, messageColor: event.target.value }))} /><span>Màu chữ</span></label></div>
+                <div className="caption-field"><input value={collageSettings.message} maxLength={80} onChange={(event) => setCollageSettings((current) => ({ ...current, message: event.target.value }))} placeholder="Nhập lời nhắn…" /><span>{collageSettings.message.length}/80</span></div>
+                <div className="pattern-switch message-position-switch" role="group" aria-label="Vị trí lời nhắn">
+                  {([['top', 'Phía trên'], ['bottom', 'Phía dưới']] as const).map(([value, label]) => <button key={value} className={collageSettings.messagePosition === value ? 'selected' : ''} onClick={() => setCollageSettings((current) => ({ ...current, messagePosition: value }))}>{label}</button>)}
                 </div>
 
                 <div className="section-line collage-heading"><h3>Xếp photobooth</h3><span>{collageSettings.items.length}/{MAX_COLLAGE_ITEMS} bản</span></div>

@@ -147,6 +147,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .editor-layout { grid-template-columns: minmax(330px, .78fr) minmax(480px, 1.22fr); align-items: stretch; height: calc(100vh - 185px); min-height: 520px; overflow: hidden; }
 .preview-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; align-items: center; }
+.preview-column-toolbar { width: min(430px, 100%); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.preview-column-toolbar .eyebrow { margin: 0; }
+.preview-open-button { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; padding: 0 13px; background: white; color: var(--ink); box-shadow: 0 5px 16px rgba(68,43,30,.1); font-weight: 700; cursor: pointer; }
 .preview-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; min-width: 0; min-height: 0; width: 100%; height: 100%; overflow: visible; }
 .strip-preview { position: relative; height: 100%; width: auto; max-width: 100%; max-height: 100%; overflow: hidden; background: white; box-shadow: 0 26px 70px rgba(72,48,32,.18); touch-action: none; }
 .strip-preview.interactive { overflow: visible; }
@@ -220,9 +223,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .sticker-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sticker-footer button { border: 0; background: transparent; color: var(--coral-dark); font-size: 12px; cursor: pointer; }
 .collage-preview-shell { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; }
-.collage-stage { position: relative; max-width: 100%; max-height: 100%; overflow: hidden; box-shadow: 0 24px 64px rgba(72,48,32,.22); touch-action: none; isolation: isolate; }
-.collage-open-preview { position: absolute; top: 8px; right: 8px; z-index: 20; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,.8); border-radius: 999px; padding: 0 12px; background: rgba(35,29,25,.76); color: white; box-shadow: 0 5px 18px rgba(30,20,14,.2); backdrop-filter: blur(8px); cursor: pointer; }
-.collage-open-preview svg { width: 16px; height: 16px; }
+.collage-stage { position: relative; container-type: size; max-width: 100%; max-height: 100%; overflow: hidden; box-shadow: 0 24px 64px rgba(72,48,32,.22); touch-action: none; isolation: isolate; }
 .collage-item { position: absolute; container-type: inline-size; transform-origin: center; pointer-events: none; }
 .collage-item.selected::after { content: ''; position: absolute; inset: -5px; border: 1px dashed rgba(255,255,255,.95); border-radius: 5px; box-shadow: 0 0 0 1px rgba(48,31,22,.35); pointer-events: none; }
 .collage-item-body { width: 100%; height: 100%; display: grid; place-items: center; overflow: hidden; border: 0; padding: 0; background: transparent; cursor: grab; touch-action: none; pointer-events: auto; }
@@ -234,10 +235,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .collage-direct-control.rotate { left: -16px; top: -16px; cursor: grab; }
 .collage-direct-control.remove { right: -16px; top: -16px; background: #2d2926; }
 .collage-direct-control.resize { right: -16px; bottom: -16px; cursor: nwse-resize; }
+.collage-message { position: absolute; z-index: 1000; left: 8%; width: 84%; margin: 0; color: white; font-size: clamp(12px, 4cqi, 30px); font-weight: 700; line-height: 1.18; text-align: center; text-wrap: balance; text-shadow: 0 2px 8px rgba(0,0,0,.6); pointer-events: none; }
+.collage-message.top { top: 5%; }
+.collage-message.bottom { bottom: 5%; }
 .editor-background { min-height: 0; overflow-y: auto; }
 .collage-heading { margin-top: 17px; }
 .collage-formats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 10px; }
 .pattern-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; }
+.message-position-switch { grid-template-columns: 1fr 1fr; }
 .collage-formats button, .pattern-switch button, .collage-presets button { min-height: 40px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; background: white; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
 .collage-formats button.selected, .pattern-switch button.selected { border-color: var(--coral); background: #fff6f2; color: var(--coral-dark); }
 .color-picker { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; cursor: pointer; }

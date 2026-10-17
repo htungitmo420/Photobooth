@@ -1,4 +1,4 @@
-import { Eye, Maximize2, RotateCw, Trash2 } from 'lucide-react'
+import { Maximize2, RotateCw, Trash2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getCollageSize, type CollageItem, type CollageSettings } from '../collage'
 import { getFrameSize } from '../frameSize'
@@ -13,10 +13,9 @@ interface Props {
   onMove: (id: string, x: number, y: number) => void
   onUpdate: (id: string, changes: Partial<CollageItem>) => void
   onRemove: (id: string) => void
-  onPreview?: () => void
 }
 
-export function CollageEditor({ session, settings, selectedId, onSelect, onMove, onUpdate, onRemove, onPreview }: Props) {
+export function CollageEditor({ session, settings, selectedId, onSelect, onMove, onUpdate, onRemove }: Props) {
   const stageRef = useRef<HTMLDivElement>(null)
   const [stripUrl, setStripUrl] = useState<string | null>(null)
   const fallbackSize = getFrameSize(session.layout, session.frame)
@@ -140,10 +139,10 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
   const backgroundSizes = [...patternLayers.map(() => patternSize), ...(imageLayer ? ['cover'] : [])]
   const backgroundPositions = [...patternLayers.map(() => '0 0'), ...(imageLayer ? ['center'] : [])]
   const backgroundRepeats = [...patternLayers.map(() => 'repeat'), ...(imageLayer ? ['no-repeat'] : [])]
+  const editorTopZIndex = Math.max(1000, ...settings.items.map((item) => item.zIndex)) + 1
 
   return (
     <div className="collage-preview-shell">
-      {onPreview && <button className="collage-open-preview" onClick={onPreview} aria-label="Xem trước nền ghép"><Eye /> <span>Xem trước</span></button>}
       <div
         ref={stageRef}
         className="collage-stage"
@@ -170,7 +169,7 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
               width: `${item.width * 100}%`,
               aspectRatio: `${stripSize.width}/${stripSize.height}`,
               transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
-              zIndex: item.zIndex,
+              zIndex: selectedId === item.id ? editorTopZIndex : item.zIndex,
             }}
           >
             <button
@@ -195,6 +194,14 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
             </>}
           </div>
         ))}
+        {settings.message.trim() && (
+          <p
+            className={`collage-message ${settings.messagePosition}`}
+            style={{ color: settings.messageColor }}
+          >
+            {settings.message.trim()}
+          </p>
+        )}
       </div>
     </div>
   )
