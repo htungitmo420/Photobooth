@@ -759,7 +759,7 @@ export default function App() {
               <span>Loại phiên chụp</span>
               <div role="group" aria-label="Loại phiên chụp">
                 <button className={captureMode === 'photo' ? 'selected' : ''} aria-pressed={captureMode === 'photo'} onClick={() => setCaptureMode('photo')}><ImageIcon size={16} /><span><strong>Chỉ ảnh</strong><small>Photobooth thông thường</small></span></button>
-                <button className={captureMode === 'photo-gallery' ? 'selected' : ''} aria-pressed={captureMode === 'photo-gallery'} onClick={() => setCaptureMode('photo-gallery')}><Video size={16} /><span><strong>Ảnh + LiveGallery</strong><small>Chụp gấp đôi, chọn ảnh và nhận QR</small></span></button>
+                <button className={captureMode === 'photo-gallery' ? 'selected' : ''} aria-pressed={captureMode === 'photo-gallery'} onClick={() => setCaptureMode('photo-gallery')}><Video size={16} /><span><strong>Ảnh + LiveGallery<b className="beta-badge">BETA</b></strong><small>Chụp gấp đôi, chọn ảnh và nhận QR</small></span></button>
               </div>
             </div>
             <div className="quick-settings">

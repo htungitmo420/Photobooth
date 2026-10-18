@@ -88,6 +88,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .capture-mode-setting button > span { min-width: 0; }
 .capture-mode-setting strong, .capture-mode-setting small { display: block; }
 .capture-mode-setting strong { font-size: 12px; }
+.capture-mode-setting .beta-badge { margin-left: 6px; vertical-align: middle; }
 .capture-mode-setting small { margin-top: 2px; color: var(--muted); font-size: 9px; }
 .quick-settings { display: flex; gap: 10px; margin: 20px 0; }
 .quick-settings label, .toggle { flex: 1; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: white; padding: 8px 12px; font-size: 12px; }
