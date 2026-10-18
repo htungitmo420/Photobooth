@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PHOTO_MOTION_DURATION_MS,
+  PHOTO_FRAME_DELAY_MS,
   encodeGifFrames,
   getPhotoFrameDelay,
+  getPhotoMotionDuration,
   selectRecorderMimeType,
 } from './motionCapture'
 
 describe('photo motion timing', () => {
-  it('distributes every captured photo across exactly six seconds', () => {
-    expect(PHOTO_MOTION_DURATION_MS).toBe(6000)
-    expect(getPhotoFrameDelay(6)).toBe(1000)
+  it('shows every captured photo for 0.75 seconds', () => {
+    expect(PHOTO_FRAME_DELAY_MS).toBe(750)
+    expect(getPhotoFrameDelay(6)).toBe(750)
     expect(getPhotoFrameDelay(8)).toBe(750)
+    expect(getPhotoMotionDuration(6)).toBe(4500)
+    expect(getPhotoMotionDuration(8)).toBe(6000)
   })
 
   it('requires at least one captured photo', () => {

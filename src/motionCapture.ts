@@ -18,13 +18,17 @@ export interface MotionClip {
   durationMs: number
 }
 
-export const PHOTO_MOTION_DURATION_MS = 6000
+export const PHOTO_FRAME_DELAY_MS = 750
 
 export function getPhotoFrameDelay(photoCount: number) {
   if (!Number.isInteger(photoCount) || photoCount <= 0) {
     throw new Error('Cần ít nhất một ảnh để tạo chuyển động.')
   }
-  return Math.max(100, Math.round(PHOTO_MOTION_DURATION_MS / photoCount))
+  return PHOTO_FRAME_DELAY_MS
+}
+
+export function getPhotoMotionDuration(photoCount: number) {
+  return getPhotoFrameDelay(photoCount) * photoCount
 }
 
 function loadPhoto(source: string): Promise<HTMLImageElement> {
@@ -99,7 +103,7 @@ export async function createPhotoMotionClip(sources: string[]): Promise<MotionCl
     gifBlob,
     videoUrl: videoBlob ? URL.createObjectURL(videoBlob) : null,
     gifUrl: URL.createObjectURL(gifBlob),
-    durationMs: PHOTO_MOTION_DURATION_MS,
+    durationMs: getPhotoMotionDuration(images.length),
   }
 }
 
