@@ -311,12 +311,16 @@ export async function composeCollage(session: BoothSession, settings: CollageSet
   return canvas
 }
 
-async function downloadCanvas(canvas: HTMLCanvasElement, format: 'png' | 'jpeg', prefix: string) {
+export async function canvasToBlob(canvas: HTMLCanvasElement, format: 'png' | 'jpeg') {
   const type = format === 'png' ? 'image/png' : 'image/jpeg'
   const quality = format === 'jpeg' ? 0.92 : undefined
-  const blob = await new Promise<Blob>((resolve, reject) => {
+  return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Không thể mã hóa ảnh.')), type, quality)
   })
+}
+
+async function downloadCanvas(canvas: HTMLCanvasElement, format: 'png' | 'jpeg', prefix: string) {
+  const blob = await canvasToBlob(canvas, format)
   const now = new Date()
   const stamp = [
     now.getFullYear(),
@@ -333,6 +337,24 @@ async function downloadCanvas(canvas: HTMLCanvasElement, format: 'png' | 'jpeg',
   anchor.download = `${prefix}-${stamp}.${format === 'png' ? 'png' : 'jpg'}`
   anchor.click()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export async function composeStripBlob(session: BoothSession, format: 'png' | 'jpeg' = 'jpeg') {
+  const rendered = await composeStrip(session)
+  const canvas = format === 'jpeg' && session.frame.assetUrl
+    ? (() => {
+        const flattened = document.createElement('canvas')
+        flattened.width = rendered.width
+        flattened.height = rendered.height
+        const context = flattened.getContext('2d')
+        if (!context) return rendered
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, flattened.width, flattened.height)
+        context.drawImage(rendered, 0, 0)
+        return flattened
+      })()
+    : rendered
+  return canvasToBlob(canvas, format)
 }
 
 export async function downloadStrip(session: BoothSession, format: 'png' | 'jpeg') {

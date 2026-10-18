@@ -4,6 +4,7 @@ import {
   SwitchCamera, Trash2, Video, Volume2, VolumeX, X, Zap, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import QRCode from 'qrcode'
 import { DEFAULT_CAMERA_TRANSFORM, type CameraTransform } from './cameraGeometry'
 import { suggestedZoomMode, type ZoomMode } from './cameraSource'
 import {
@@ -24,11 +25,12 @@ import {
 import { loadRemoteBackgrounds, type RemoteBackground } from './lib/backgrounds'
 import { loadStickers } from './lib/stickers'
 import {
-  MOTION_DURATION_MS, captureMotionClip, downloadMotionBlob, revokeMotionClip,
+  createPhotoMotionClip, downloadMotionBlob, revokeMotionClip,
   type CaptureMode, type MotionClip,
 } from './motionCapture'
 import { FILTERS, FALLBACK_FRAMES, FALLBACK_STICKERS, LAYOUTS, STICKER_CATEGORIES } from './presets'
-import { downloadCollage, downloadStrip } from './rendering'
+import { composeStripBlob, downloadCollage, downloadStrip } from './rendering'
+import { publishGalleryAlbum, type GalleryShare } from './galleryPublish'
 import type { AppStep, BoothFrame, BoothSession, BoothSticker, CapturedPhoto, FilterId, FlashMode, StickerAsset, StickerCategory } from './types'
 
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
@@ -75,10 +77,12 @@ export default function App() {
   const [frame, setFrame] = useState<BoothFrame>(FALLBACK_FRAMES[0])
   const [remoteFrames, setRemoteFrames] = useState(false)
   const [photos, setPhotos] = useState<CapturedPhoto[]>([])
+  const [candidatePhotos, setCandidatePhotos] = useState<CapturedPhoto[]>([])
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([])
   const [captureMode, setCaptureMode] = useState<CaptureMode>('photo')
   const [motionClip, setMotionClip] = useState<MotionClip | null>(null)
   const [motionPhase, setMotionPhase] = useState<'idle' | 'countdown' | 'recording' | 'encoding'>('idle')
-  const [motionRemaining, setMotionRemaining] = useState(MOTION_DURATION_MS)
+  const [preparingSelection, setPreparingSelection] = useState(false)
   const [countdownSeconds, setCountdownSeconds] = useState(getSavedCountdown)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [capturing, setCapturing] = useState(false)
@@ -120,6 +124,9 @@ export default function App() {
   const [previewView, setPreviewView] = useState({ zoom: 1, x: 0, y: 0 })
   const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null)
   const [motionPreviewOpen, setMotionPreviewOpen] = useState(false)
+  const [publishingGallery, setPublishingGallery] = useState(false)
+  const [galleryShare, setGalleryShare] = useState<(GalleryShare & { qrDataUrl: string }) | null>(null)
+  const [galleryShareOpen, setGalleryShareOpen] = useState(false)
   const cancelRef = useRef(0)
   const pausedRef = useRef(false)
   const frameInputRef = useRef<HTMLInputElement>(null)
@@ -201,6 +208,11 @@ export default function App() {
   useEffect(() => () => revokeMotionClip(motionClip), [motionClip])
 
   useEffect(() => {
+    setGalleryShare(null)
+    setGalleryShareOpen(false)
+  }, [caption, collageSettings.message, filter, frame.id, photos, stickers])
+
+  useEffect(() => {
     if (!previewOpen && photoPreviewIndex === null && !motionPreviewOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -260,6 +272,8 @@ export default function App() {
   )
   const selectedSticker = stickers.find((item) => item.id === selectedStickerId) ?? null
   const selectedCollageItem = collageSettings.items.find((item) => item.id === selectedCollageItemId) ?? null
+  const captureTarget = captureMode === 'photo-gallery' ? layout.slots * 2 : layout.slots
+  const capturePool = captureMode === 'photo-gallery' ? candidatePhotos : photos
 
   useEffect(() => {
     if (frame.layoutId && frame.layoutId !== layout.id) setFrame(FALLBACK_FRAMES[0])
@@ -346,7 +360,12 @@ export default function App() {
       if (retakeIndex !== null) {
         const photo = await takeFrame(token)
         if (photo && token === cancelRef.current) {
+          const replacedId = photos[retakeIndex]?.id
           setPhotos((current) => current.map((item, index) => index === retakeIndex ? photo : item))
+          if (replacedId) {
+            setCandidatePhotos((current) => current.map((item) => item.id === replacedId ? photo : item))
+            setSelectedCandidateIds((current) => current.map((id) => id === replacedId ? photo.id : id))
+          }
           camera.stop()
           setRetakeIndex(null)
           setStep('edit')
@@ -354,44 +373,20 @@ export default function App() {
         return
       }
 
-      const nextPhotos: CapturedPhoto[] = []
-      for (let index = photos.length; index < layout.slots; index += 1) {
+      for (let index = capturePool.length; index < captureTarget; index += 1) {
         const photo = await takeFrame(token)
         if (!photo || token !== cancelRef.current) return
-        nextPhotos.push(photo)
-        setPhotos((current) => [...current, photo])
-        if (index < layout.slots - 1 && !await waitDuringCapture(800, token)) return
-      }
-      if (captureMode === 'photo-motion') {
-        setMotionPhase('countdown')
-        if (!await runCountdown(token)) return
-        const video = camera.videoRef.current
-        if (!video) throw new Error('Camera chưa sẵn sàng để quay chuyển động.')
-        setMotionPhase('recording')
-        setMotionRemaining(MOTION_DURATION_MS)
-        let clip: MotionClip
-        try {
-          clip = await captureMotionClip({
-            video,
-            mirror,
-            transform: zoomMode === 'web' ? cameraTransform : DEFAULT_CAMERA_TRANSFORM,
-            isPaused: () => pausedRef.current,
-            isCancelled: () => token !== cancelRef.current,
-            onProgress: setMotionRemaining,
-            onEncoding: () => setMotionPhase('encoding'),
-          })
-        } catch (error) {
-          if (error instanceof DOMException && error.name === 'AbortError') return
-          throw error
-        }
-        if (token !== cancelRef.current) {
-          revokeMotionClip(clip)
-          return
-        }
-        setMotionClip(clip)
+        if (captureMode === 'photo-gallery') setCandidatePhotos((current) => [...current, photo])
+        else setPhotos((current) => [...current, photo])
+        if (index < captureTarget - 1 && !await waitDuringCapture(800, token)) return
       }
       camera.stop()
-      setStep('edit')
+      if (captureMode === 'photo-gallery') {
+        setSelectedCandidateIds([])
+        setStep('select')
+      } else {
+        setStep('edit')
+      }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Không thể chụp ảnh.')
     } finally {
@@ -414,7 +409,7 @@ export default function App() {
     setScreenFlash(false)
     setMotionPhase('idle')
     void camera.setTorch(false)
-    setNotice(photos.length ? 'Đã giữ các ảnh vừa chụp. Bạn có thể chụp tiếp.' : 'Đã hủy lượt chụp.')
+    setNotice(capturePool.length ? 'Đã giữ các ảnh vừa chụp. Bạn có thể chụp tiếp.' : 'Đã hủy lượt chụp.')
   }
 
   const togglePause = () => {
@@ -431,6 +426,8 @@ export default function App() {
     setPaused(false)
     camera.stop()
     setPhotos([])
+    setCandidatePhotos([])
+    setSelectedCandidateIds([])
     setMotionClip(null)
     setMotionPhase('idle')
     setStickers([])
@@ -455,7 +452,46 @@ export default function App() {
     setCameraTransform(DEFAULT_CAMERA_TRANSFORM)
     setPreviewOpen(false)
     setPhotoPreviewIndex(null)
+    setGalleryShare(null)
+    setGalleryShareOpen(false)
     setStep('setup')
+  }
+
+  const toggleCandidate = (id: string) => {
+    setSelectedCandidateIds((current) => {
+      if (current.includes(id)) return current.filter((candidate) => candidate !== id)
+      if (current.length >= layout.slots) {
+        setNotice(`Bạn chỉ cần chọn ${layout.slots} ảnh cho photobooth.`)
+        return current
+      }
+      return [...current, id]
+    })
+  }
+
+  const confirmPhotoSelection = async () => {
+    if (selectedCandidateIds.length !== layout.slots || preparingSelection) return
+    setPreparingSelection(true)
+    setMotionPhase('encoding')
+    setNotice(null)
+    try {
+      const selectedSet = new Set(selectedCandidateIds)
+      const selected = selectedCandidateIds
+        .map((id) => candidatePhotos.find((photo) => photo.id === id))
+        .filter((photo): photo is CapturedPhoto => Boolean(photo))
+      const extras = candidatePhotos.filter((photo) => !selectedSet.has(photo.id))
+      const clip = await createPhotoMotionClip(extras.map((photo) => photo.dataUrl))
+      setPhotos(selected)
+      setMotionClip((current) => {
+        revokeMotionClip(current)
+        return clip
+      })
+      setStep('edit')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Không thể tạo ảnh chuyển động.')
+    } finally {
+      setMotionPhase('idle')
+      setPreparingSelection(false)
+    }
   }
 
   const addSticker = (asset: StickerAsset) => {
@@ -624,6 +660,53 @@ export default function App() {
     }
   }
 
+  const publishLiveGallery = async () => {
+    if (publishingGallery) return
+    if (!motionClip || candidatePhotos.length !== layout.slots * 2) {
+      setNotice('Bộ ảnh này chưa đủ dữ liệu để tạo LiveGallery.')
+      return
+    }
+    setPublishingGallery(true)
+    setNotice('Đang tải ảnh lên LiveGallery…')
+    try {
+      const stripBlob = await composeStripBlob(session, 'jpeg')
+      const share = await publishGalleryAlbum({
+        title: caption.trim() || 'Khoảnh khắc của bạn',
+        message: collageSettings.message,
+        layoutId: layout.id,
+        selectedPhotoIds: photos.map((photo) => photo.id),
+        photos: candidatePhotos,
+        stripBlob,
+        motion: motionClip,
+      })
+      const qrDataUrl = await QRCode.toDataURL(share.url, {
+        width: 320,
+        margin: 1,
+        color: { dark: '#251f1b', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      })
+      setGalleryShare({ ...share, qrDataUrl })
+      setGalleryShareOpen(true)
+      setNotice('Album LiveGallery đã sẵn sàng để quét QR.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Không thể tạo LiveGallery.')
+    } finally {
+      setPublishingGallery(false)
+    }
+  }
+
+  const copyGalleryCode = async () => {
+    if (!galleryShare) return
+    try {
+      await navigator.clipboard.writeText(galleryShare.shareCode)
+      setNotice('Đã sao chép mã album.')
+    } catch {
+      setNotice(`Mã album: ${galleryShare.shareCode}`)
+    }
+  }
+
+  const progressStep = step === 'select' ? 'capture' : step
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -631,7 +714,7 @@ export default function App() {
           <span className="brand-mark"><Camera size={20} /></span>
           <span><strong>Khoảnh Khắc</strong><small>photobooth</small></span>
         </button>
-        <div className="privacy-note"><ShieldCheck size={16} /> Ảnh chỉ được xử lý trên thiết bị</div>
+        <div className="privacy-note"><ShieldCheck size={16} /> {captureMode === 'photo-gallery' ? 'Chỉ tải lên khi bạn tạo LiveGallery' : 'Ảnh chỉ được xử lý trên thiết bị'}</div>
       </header>
 
       <nav className="steps" aria-label="Tiến trình">
@@ -640,8 +723,8 @@ export default function App() {
           ['capture', '02', 'Chụp ảnh'],
           ['edit', '03', 'Hoàn thiện'],
         ].map(([value, number, label]) => (
-          <div key={value} className={`step ${step === value ? 'active' : ''} ${(['setup', 'capture', 'edit'].indexOf(step) > ['setup', 'capture', 'edit'].indexOf(value)) ? 'done' : ''}`}>
-            <span>{step !== value && ['setup', 'capture', 'edit'].indexOf(step) > ['setup', 'capture', 'edit'].indexOf(value) ? <Check size={14} /> : number}</span>
+          <div key={value} className={`step ${progressStep === value ? 'active' : ''} ${(['setup', 'capture', 'edit'].indexOf(progressStep) > ['setup', 'capture', 'edit'].indexOf(value)) ? 'done' : ''}`}>
+            <span>{progressStep !== value && ['setup', 'capture', 'edit'].indexOf(progressStep) > ['setup', 'capture', 'edit'].indexOf(value) ? <Check size={14} /> : number}</span>
             {label}
           </div>
         ))}
@@ -678,7 +761,7 @@ export default function App() {
               <span>Loại phiên chụp</span>
               <div role="group" aria-label="Loại phiên chụp">
                 <button className={captureMode === 'photo' ? 'selected' : ''} aria-pressed={captureMode === 'photo'} onClick={() => setCaptureMode('photo')}><ImageIcon size={16} /><span><strong>Chỉ ảnh</strong><small>Photobooth thông thường</small></span></button>
-                <button className={captureMode === 'photo-motion' ? 'selected' : ''} aria-pressed={captureMode === 'photo-motion'} onClick={() => setCaptureMode('photo-motion')}><Video size={16} /><span><strong>Ảnh + chuyển động</strong><small>Thêm video 6 giây và GIF</small></span></button>
+                <button className={captureMode === 'photo-gallery' ? 'selected' : ''} aria-pressed={captureMode === 'photo-gallery'} onClick={() => setCaptureMode('photo-gallery')}><Video size={16} /><span><strong>Ảnh + LiveGallery</strong><small>Chụp gấp đôi, chọn ảnh và nhận QR</small></span></button>
               </div>
             </div>
             <div className="quick-settings">
@@ -705,12 +788,11 @@ export default function App() {
                 }}
               />
               {!camera.active && <div className="camera-placeholder">{camera.loading ? <LoaderCircle className="spin" /> : <Camera />}<p>{camera.loading ? 'Đang mở camera…' : camera.error ?? 'Camera đang tắt'}</p>{!camera.loading && <button onClick={() => camera.start()}>Thử lại</button>}</div>}
-              {countdown !== null && <div className="countdown"><span>{countdown}</span><small>{motionPhase === 'countdown' ? 'Sắp quay chuyển động!' : 'Chuẩn bị nhé!'}</small></div>}
-              {motionPhase === 'recording' && <div className="motion-recording"><i /><strong>Đang quay chuyển động</strong><span>{Math.max(1, Math.ceil(motionRemaining / 1000))} giây</span></div>}
-              {motionPhase === 'encoding' && <div className="motion-encoding"><LoaderCircle className="spin" /><strong>Đang tạo GIF…</strong></div>}
+              {countdown !== null && <div className="countdown"><span>{countdown}</span><small>Chuẩn bị nhé!</small></div>}
+              {motionPhase === 'encoding' && <div className="motion-encoding"><LoaderCircle className="spin" /><strong>Đang tạo ảnh động…</strong></div>}
               {paused && <div className="pause-overlay"><Pause size={42} /><strong>Đã tạm dừng</strong><span>Ấn Tiếp tục để chụp tiếp.</span></div>}
               {screenFlash && <div className="flash" />}
-              <div className="camera-progress">{motionPhase !== 'idle' ? 'Video + GIF' : retakeIndex !== null ? `Chụp lại ảnh ${retakeIndex + 1}` : `Ảnh ${Math.min(photos.length + 1, layout.slots)} / ${layout.slots}`}</div>
+              <div className="camera-progress">{retakeIndex !== null ? `Chụp lại ảnh ${retakeIndex + 1}` : `Ảnh ${Math.min(capturePool.length + 1, captureTarget)} / ${captureTarget}`}</div>
             </div>
             <div className="camera-actions">
               <button className="icon-button" onClick={() => setMirror((value) => !value)} disabled={capturing} aria-label="Lật ảnh"><FlipHorizontal2 /></button>
@@ -728,21 +810,43 @@ export default function App() {
           </div>
           <aside className="capture-side">
             <p className="eyebrow">{layout.name}</p>
-            <h2>{motionPhase === 'recording' ? 'Chuyển động tự nhiên nhé!' : 'Đổi dáng sau mỗi tiếng bíp'}</h2>
-            <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị.{captureMode === 'photo-motion' && ' Sau ảnh cuối, máy sẽ quay thêm một clip 6 giây để tạo video và GIF.'}</p>
+            <h2>Đổi dáng sau mỗi tiếng bíp</h2>
+            <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị.{captureMode === 'photo-gallery' && ` Máy sẽ chụp ${captureTarget} tấm để bạn chọn ${layout.slots} tấm cho photobooth; các tấm còn lại tạo ảnh động trên LiveGallery.`}</p>
             {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => selectCamera(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
             <div className="zoom-source"><span>Điều khiển zoom</span><div role="group" aria-label="Cách điều khiển zoom"><button className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => { setZoomModeOverride('web'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trong web</button><button className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => { setZoomModeOverride('device'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trên máy ảnh</button></div></div>
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
-            <div className="photo-slots">
-              {Array.from({ length: layout.slots }, (_, index) => (
-                <div key={index} className={photos[index] ? 'filled' : ''}>
-                  {photos[index] ? <img src={photos[index].dataUrl} alt={`Ảnh ${index + 1}`} /> : <span>{index + 1}</span>}
+            <div className={`photo-slots ${captureTarget > 4 ? 'many' : ''}`}>
+              {Array.from({ length: captureTarget }, (_, index) => (
+                <div key={index} className={capturePool[index] ? 'filled' : ''}>
+                  {capturePool[index] ? <img src={capturePool[index].dataUrl} alt={`Ảnh ${index + 1}`} /> : <span>{index + 1}</span>}
                 </div>
               ))}
-              {captureMode === 'photo-motion' && <div className={`motion-slot ${motionClip ? 'filled' : ''}`}><Video size={18} /><span>{motionClip ? 'Đã quay' : '6 giây'}</span></div>}
             </div>
-            <button className="text-button" onClick={() => { camera.stop(); setStep(photos.length === layout.slots ? 'edit' : 'setup') }}><ChevronLeft size={17} /> Quay lại</button>
+            <button className="text-button" onClick={() => { camera.stop(); setStep(capturePool.length === captureTarget ? (captureMode === 'photo-gallery' ? 'select' : 'edit') : 'setup') }}><ChevronLeft size={17} /> Quay lại</button>
           </aside>
+        </section>
+      )}
+
+      {step === 'select' && (
+        <section className="selection-screen">
+          <div className="selection-heading">
+            <div><p className="eyebrow">Chọn ảnh photobooth</p><h1>Giữ lại {layout.slots} khoảnh khắc bạn thích</h1><p>Các ảnh chưa chọn vẫn được lưu trong LiveGallery và tự ghép thành ảnh động.</p></div>
+            <div className="selection-count"><strong>{selectedCandidateIds.length}</strong><span>/ {layout.slots} ảnh</span></div>
+          </div>
+          <div className="candidate-grid">
+            {candidatePhotos.map((photo, index) => {
+              const selectedIndex = selectedCandidateIds.indexOf(photo.id)
+              return <button key={photo.id} className={selectedIndex >= 0 ? 'candidate selected' : 'candidate'} onClick={() => toggleCandidate(photo.id)} aria-pressed={selectedIndex >= 0}>
+                <img src={photo.dataUrl} alt={`Ảnh chụp ${index + 1}`} />
+                <span className="candidate-number">{index + 1}</span>
+                {selectedIndex >= 0 ? <span className="candidate-choice"><Check size={16} /> Ảnh photobooth {selectedIndex + 1}</span> : <span className="candidate-choice muted">Đưa vào LiveGallery</span>}
+              </button>
+            })}
+          </div>
+          <div className="selection-actions">
+            <button className="text-button" onClick={() => { setCandidatePhotos([]); setSelectedCandidateIds([]); void enterCamera() }}><RotateCcw size={17} /> Chụp lại toàn bộ</button>
+            <button className="primary-button" disabled={selectedCandidateIds.length !== layout.slots || preparingSelection} onClick={() => void confirmPhotoSelection()}>{preparingSelection ? <LoaderCircle className="spin" /> : <Check />} {preparingSelection ? 'Đang tạo ảnh động…' : 'Dùng các ảnh đã chọn'}</button>
+          </div>
         </section>
       )}
 
@@ -768,7 +872,7 @@ export default function App() {
             </div>
             <div className="retake-row">
               {photos.map((photo, index) => <button key={photo.id} onClick={() => setPhotoPreviewIndex(index)}><img src={photo.dataUrl} alt="" /><span><ImageIcon size={13} /> Xem ảnh {index + 1}</span></button>)}
-              {motionClip && <button className="motion-review-button" onClick={() => setMotionPreviewOpen(true)}><video src={motionClip.videoUrl} muted playsInline preload="metadata" /><span><Video size={13} /> Xem chuyển động</span></button>}
+              {motionClip && <button className="motion-review-button" onClick={() => setMotionPreviewOpen(true)}><img src={motionClip.gifUrl} alt="Ảnh động LiveGallery" /><span><Video size={13} /> Xem ảnh động</span></button>}
             </div>
           </div>
 
@@ -869,7 +973,8 @@ export default function App() {
             </div>}
 
             <div className="export-stack">
-              {motionClip && <section className="motion-export-card"><div><Video /><span><strong>Khoảnh khắc chuyển động</strong><small>Video 6 giây và GIF lặp</small></span></div><div><button onClick={() => downloadMotionBlob(motionClip.videoBlob, 'webm')}><Download size={16} /> Video</button><button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={16} /> GIF</button></div></section>}
+              {motionClip && <section className="motion-export-card"><div><Video /><span><strong>Khoảnh khắc chuyển động</strong><small>{candidatePhotos.length - photos.length} ảnh phụ ghép thành GIF{motionClip.videoBlob ? ' và video' : ''}</small></span></div><div>{motionClip.videoBlob && <button onClick={() => downloadMotionBlob(motionClip.videoBlob!, 'webm')}><Download size={16} /> Video</button>}<button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={16} /> GIF</button></div></section>}
+              {captureMode === 'photo-gallery' && <section className="gallery-export-card"><div><span className="gallery-export-icon"><Video size={20} /></span><span><strong>LiveGallery riêng</strong><small>Tải bộ ảnh, ảnh động và bản photobooth để nhận QR cùng mã album.</small></span></div>{galleryShare ? <button className="gallery-ready-button" onClick={() => setGalleryShareOpen(true)}><Eye size={17} /> Xem QR · {galleryShare.shareCode.toUpperCase()}</button> : <button className="primary-button" onClick={() => void publishLiveGallery()} disabled={publishingGallery}>{publishingGallery ? <LoaderCircle className="spin" /> : <ImageIcon />} {publishingGallery ? 'Đang tạo album…' : 'Tạo mã QR LiveGallery'}</button>}</section>}
               <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>{editorPanelTab === 'background' ? 'Ảnh nền ghép chất lượng cao' : 'Ảnh chất lượng cao'}</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : editorPanelTab === 'background' ? 'Tải ảnh ghép' : 'Tải ảnh về'}</button></section>
             </div>
 
@@ -949,11 +1054,26 @@ export default function App() {
         <div className="photo-review-modal" role="dialog" aria-modal="true" aria-labelledby="motion-review-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setMotionPreviewOpen(false) }}>
           <div className="photo-review-card motion-review-card">
             <div className="photo-review-head">
-              <div><p className="eyebrow">Ảnh + chuyển động</p><h2 id="motion-review-title">Video 6 giây</h2></div>
+              <div><p className="eyebrow">LiveGallery</p><h2 id="motion-review-title">Ảnh động từ ảnh phụ</h2></div>
               <button autoFocus onClick={() => setMotionPreviewOpen(false)} aria-label="Đóng xem video"><X /></button>
             </div>
-            <div className="photo-review-image"><video src={motionClip.videoUrl} controls autoPlay loop muted playsInline /></div>
-            <div className="motion-review-actions"><button onClick={() => downloadMotionBlob(motionClip.videoBlob, 'webm')}><Download size={17} /> Tải Video</button><button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={17} /> Tải GIF</button></div>
+            <div className="photo-review-image"><img src={motionClip.gifUrl} alt="Ảnh động từ các ảnh phụ" /></div>
+            <div className="motion-review-actions">{motionClip.videoBlob && <button onClick={() => downloadMotionBlob(motionClip.videoBlob!, 'webm')}><Download size={17} /> Tải Video</button>}<button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={17} /> Tải GIF</button></div>
+          </div>
+        </div>
+      )}
+
+      {galleryShareOpen && galleryShare && (
+        <div className="gallery-share-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-share-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setGalleryShareOpen(false) }}>
+          <div className="gallery-share-card">
+            <button className="gallery-share-close" onClick={() => setGalleryShareOpen(false)} aria-label="Đóng mã QR"><X /></button>
+            <p className="eyebrow">LiveGallery đã sẵn sàng</p>
+            <h2 id="gallery-share-title">Quét để xem toàn bộ khoảnh khắc</h2>
+            <img className="gallery-qr" src={galleryShare.qrDataUrl} alt={`Mã QR album ${galleryShare.shareCode}`} />
+            <span className="gallery-code-label">Mã album</span>
+            <button className="gallery-code" onClick={() => void copyGalleryCode()} title="Sao chép mã album">{galleryShare.shareCode.toUpperCase()} <Copy size={17} /></button>
+            <p>Nhập mã này tại <strong>livegallery.nhtisitmo.workers.dev</strong> hoặc quét QR trên điện thoại.</p>
+            <a className="primary-button gallery-open-link" href={galleryShare.url} target="_blank" rel="noreferrer"><Eye size={17} /> Mở LiveGallery</a>
           </div>
         </div>
       )}

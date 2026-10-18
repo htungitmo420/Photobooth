@@ -8,14 +8,93 @@ const VIDEO_HEIGHT = 540
 const GIF_WIDTH = 400
 const GIF_HEIGHT = 300
 
-export type CaptureMode = 'photo' | 'photo-motion'
+export type CaptureMode = 'photo' | 'photo-gallery'
 
 export interface MotionClip {
-  videoBlob: Blob
+  videoBlob: Blob | null
   gifBlob: Blob
-  videoUrl: string
+  videoUrl: string | null
   gifUrl: string
   durationMs: number
+}
+
+const PHOTO_FRAME_DELAY_MS = 700
+
+function loadPhoto(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Không thể đọc ảnh để tạo chuyển động.'))
+    image.src = source
+  })
+}
+
+function drawPhotoCover(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+) {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight)
+  const drawWidth = image.naturalWidth * scale
+  const drawHeight = image.naturalHeight * scale
+  context.clearRect(0, 0, width, height)
+  context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
+}
+
+export async function createPhotoMotionClip(sources: string[]): Promise<MotionClip> {
+  if (sources.length === 0) throw new Error('Cần ít nhất một ảnh phụ để tạo ảnh động.')
+  const images = await Promise.all(sources.map(loadPhoto))
+  const gifCanvas = document.createElement('canvas')
+  gifCanvas.width = GIF_WIDTH
+  gifCanvas.height = GIF_HEIGHT
+  const gifContext = gifCanvas.getContext('2d', { willReadFrequently: true })
+  if (!gifContext) throw new Error('Không thể chuẩn bị ảnh GIF.')
+
+  const gifFrames = images.map((image) => {
+    drawPhotoCover(gifContext, image, GIF_WIDTH, GIF_HEIGHT)
+    return gifContext.getImageData(0, 0, GIF_WIDTH, GIF_HEIGHT)
+  })
+  const gifBlob = encodeGifFrames(gifFrames, PHOTO_FRAME_DELAY_MS)
+
+  let videoBlob: Blob | null = null
+  if (typeof MediaRecorder !== 'undefined') {
+    const canvas = document.createElement('canvas')
+    canvas.width = VIDEO_WIDTH
+    canvas.height = VIDEO_HEIGHT
+    const context = canvas.getContext('2d')
+    if (context && typeof canvas.captureStream === 'function') {
+      const stream = canvas.captureStream(12)
+      const mimeType = selectRecorderMimeType(MediaRecorder.isTypeSupported.bind(MediaRecorder))
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 2_500_000 } : undefined)
+      const chunks: BlobPart[] = []
+      const stopped = new Promise<void>((resolve, reject) => {
+        recorder.addEventListener('dataavailable', (event) => { if (event.data.size > 0) chunks.push(event.data) })
+        recorder.addEventListener('stop', () => resolve(), { once: true })
+        recorder.addEventListener('error', () => reject(new Error('Không thể tạo video từ các ảnh.')), { once: true })
+      })
+      recorder.start(200)
+      for (let repeat = 0; repeat < 2; repeat += 1) {
+        for (const image of images) {
+          drawPhotoCover(context, image, VIDEO_WIDTH, VIDEO_HEIGHT)
+          await new Promise<void>((resolve) => window.setTimeout(resolve, PHOTO_FRAME_DELAY_MS))
+        }
+      }
+      recorder.stop()
+      await stopped
+      stream.getTracks().forEach((track) => track.stop())
+      const encoded = new Blob(chunks, { type: recorder.mimeType || 'video/webm' })
+      if (encoded.size > 0) videoBlob = encoded
+    }
+  }
+
+  return {
+    videoBlob,
+    gifBlob,
+    videoUrl: videoBlob ? URL.createObjectURL(videoBlob) : null,
+    gifUrl: URL.createObjectURL(gifBlob),
+    durationMs: sources.length * PHOTO_FRAME_DELAY_MS * 2,
+  }
 }
 
 interface MotionCaptureOptions {
@@ -173,7 +252,7 @@ export async function captureMotionClip(options: MotionCaptureOptions): Promise<
 
 export function revokeMotionClip(clip: MotionClip | null) {
   if (!clip) return
-  URL.revokeObjectURL(clip.videoUrl)
+  if (clip.videoUrl) URL.revokeObjectURL(clip.videoUrl)
   URL.revokeObjectURL(clip.gifUrl)
 }
 

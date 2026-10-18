@@ -1,4 +1,4 @@
-export type AppStep = 'setup' | 'capture' | 'edit'
+export type AppStep = 'setup' | 'capture' | 'select' | 'edit'
 export type LayoutId = 'strip3' | 'strip4' | 'grid4' | 'polaroid'
 export type FilterId = 'original' | 'mono' | 'warm' | 'cool' | 'vintage' | 'soft'
 export type FlashMode = 'off' | 'auto' | 'on'
