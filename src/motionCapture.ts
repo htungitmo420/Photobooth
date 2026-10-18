@@ -18,7 +18,14 @@ export interface MotionClip {
   durationMs: number
 }
 
-const PHOTO_FRAME_DELAY_MS = 700
+export const PHOTO_MOTION_DURATION_MS = 6000
+
+export function getPhotoFrameDelay(photoCount: number) {
+  if (!Number.isInteger(photoCount) || photoCount <= 0) {
+    throw new Error('Cần ít nhất một ảnh để tạo chuyển động.')
+  }
+  return Math.max(100, Math.round(PHOTO_MOTION_DURATION_MS / photoCount))
+}
 
 function loadPhoto(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -43,19 +50,20 @@ function drawPhotoCover(
 }
 
 export async function createPhotoMotionClip(sources: string[]): Promise<MotionClip> {
-  if (sources.length === 0) throw new Error('Cần ít nhất một ảnh phụ để tạo ảnh động.')
+  if (sources.length === 0) throw new Error('Cần ít nhất một ảnh để tạo chuyển động.')
   const images = await Promise.all(sources.map(loadPhoto))
   const gifCanvas = document.createElement('canvas')
   gifCanvas.width = GIF_WIDTH
   gifCanvas.height = GIF_HEIGHT
   const gifContext = gifCanvas.getContext('2d', { willReadFrequently: true })
   if (!gifContext) throw new Error('Không thể chuẩn bị ảnh GIF.')
+  const frameDelayMs = getPhotoFrameDelay(images.length)
 
   const gifFrames = images.map((image) => {
     drawPhotoCover(gifContext, image, GIF_WIDTH, GIF_HEIGHT)
     return gifContext.getImageData(0, 0, GIF_WIDTH, GIF_HEIGHT)
   })
-  const gifBlob = encodeGifFrames(gifFrames, PHOTO_FRAME_DELAY_MS)
+  const gifBlob = encodeGifFrames(gifFrames, frameDelayMs)
 
   let videoBlob: Blob | null = null
   if (typeof MediaRecorder !== 'undefined') {
@@ -74,11 +82,9 @@ export async function createPhotoMotionClip(sources: string[]): Promise<MotionCl
         recorder.addEventListener('error', () => reject(new Error('Không thể tạo video từ các ảnh.')), { once: true })
       })
       recorder.start(200)
-      for (let repeat = 0; repeat < 2; repeat += 1) {
-        for (const image of images) {
-          drawPhotoCover(context, image, VIDEO_WIDTH, VIDEO_HEIGHT)
-          await new Promise<void>((resolve) => window.setTimeout(resolve, PHOTO_FRAME_DELAY_MS))
-        }
+      for (const image of images) {
+        drawPhotoCover(context, image, VIDEO_WIDTH, VIDEO_HEIGHT)
+        await new Promise<void>((resolve) => window.setTimeout(resolve, frameDelayMs))
       }
       recorder.stop()
       await stopped
@@ -93,7 +99,7 @@ export async function createPhotoMotionClip(sources: string[]): Promise<MotionCl
     gifBlob,
     videoUrl: videoBlob ? URL.createObjectURL(videoBlob) : null,
     gifUrl: URL.createObjectURL(gifBlob),
-    durationMs: sources.length * PHOTO_FRAME_DELAY_MS * 2,
+    durationMs: PHOTO_MOTION_DURATION_MS,
   }
 }
 

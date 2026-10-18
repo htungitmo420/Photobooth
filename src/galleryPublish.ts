@@ -49,7 +49,8 @@ export async function publishGalleryAlbum(input: GalleryPublishInput): Promise<G
   body.set('strip', new File([input.stripBlob], 'photobooth.jpg', { type: input.stripBlob.type || 'image/jpeg' }))
   body.set('loopGif', new File([input.motion.gifBlob], 'khoanh-khac.gif', { type: 'image/gif' }))
   if (input.motion.videoBlob) {
-    body.set('loopVideo', new File([input.motion.videoBlob], 'khoanh-khac.webm', { type: input.motion.videoBlob.type || 'video/webm' }))
+    const videoType = input.motion.videoBlob.type.startsWith('video/mp4') ? 'video/mp4' : 'video/webm'
+    body.set('loopVideo', new File([input.motion.videoBlob], `khoanh-khac.${videoType === 'video/mp4' ? 'mp4' : 'webm'}`, { type: videoType }))
   }
   const files = await Promise.all(input.photos.map(photoFile))
   files.forEach((file) => body.append('photos', file))

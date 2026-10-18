@@ -474,12 +474,10 @@ export default function App() {
     setMotionPhase('encoding')
     setNotice(null)
     try {
-      const selectedSet = new Set(selectedCandidateIds)
       const selected = selectedCandidateIds
         .map((id) => candidatePhotos.find((photo) => photo.id === id))
         .filter((photo): photo is CapturedPhoto => Boolean(photo))
-      const extras = candidatePhotos.filter((photo) => !selectedSet.has(photo.id))
-      const clip = await createPhotoMotionClip(extras.map((photo) => photo.dataUrl))
+      const clip = await createPhotoMotionClip(candidatePhotos.map((photo) => photo.dataUrl))
       setPhotos(selected)
       setMotionClip((current) => {
         revokeMotionClip(current)
@@ -811,7 +809,7 @@ export default function App() {
           <aside className="capture-side">
             <p className="eyebrow">{layout.name}</p>
             <h2>Đổi dáng sau mỗi tiếng bíp</h2>
-            <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị.{captureMode === 'photo-gallery' && ` Máy sẽ chụp ${captureTarget} tấm để bạn chọn ${layout.slots} tấm cho photobooth; các tấm còn lại tạo ảnh động trên LiveGallery.`}</p>
+            <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị.{captureMode === 'photo-gallery' && ` Máy sẽ chụp ${captureTarget} tấm để bạn chọn ${layout.slots} tấm cho photobooth; toàn bộ ảnh tạo chuyển động 6 giây trên LiveGallery.`}</p>
             {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => selectCamera(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
             <div className="zoom-source"><span>Điều khiển zoom</span><div role="group" aria-label="Cách điều khiển zoom"><button className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => { setZoomModeOverride('web'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trong web</button><button className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => { setZoomModeOverride('device'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trên máy ảnh</button></div></div>
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
@@ -830,7 +828,7 @@ export default function App() {
       {step === 'select' && (
         <section className="selection-screen">
           <div className="selection-heading">
-            <div><p className="eyebrow">Chọn ảnh photobooth</p><h1>Giữ lại {layout.slots} khoảnh khắc bạn thích</h1><p>Các ảnh chưa chọn vẫn được lưu trong LiveGallery và tự ghép thành ảnh động.</p></div>
+            <div><p className="eyebrow">Chọn ảnh photobooth</p><h1>Giữ lại {layout.slots} khoảnh khắc bạn thích</h1><p>Toàn bộ {candidatePhotos.length} ảnh được lưu trong LiveGallery và ghép thành một chuyển động dài 6 giây.</p></div>
             <div className="selection-count"><strong>{selectedCandidateIds.length}</strong><span>/ {layout.slots} ảnh</span></div>
           </div>
           <div className="candidate-grid">
@@ -973,7 +971,7 @@ export default function App() {
             </div>}
 
             <div className="export-stack">
-              {motionClip && <section className="motion-export-card"><div><Video /><span><strong>Khoảnh khắc chuyển động</strong><small>{candidatePhotos.length - photos.length} ảnh phụ ghép thành GIF{motionClip.videoBlob ? ' và video' : ''}</small></span></div><div>{motionClip.videoBlob && <button onClick={() => downloadMotionBlob(motionClip.videoBlob!, 'webm')}><Download size={16} /> Video</button>}<button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={16} /> GIF</button></div></section>}
+              {motionClip && <section className="motion-export-card"><div><Video /><span><strong>Khoảnh khắc chuyển động</strong><small>Tất cả {candidatePhotos.length} ảnh ghép thành GIF{motionClip.videoBlob ? ' và video' : ''} dài 6 giây</small></span></div><div>{motionClip.videoBlob && <button onClick={() => downloadMotionBlob(motionClip.videoBlob!, 'webm')}><Download size={16} /> Video</button>}<button onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={16} /> GIF</button></div></section>}
               {captureMode === 'photo-gallery' && <section className="gallery-export-card"><div><span className="gallery-export-icon"><Video size={20} /></span><span><strong>LiveGallery riêng</strong><small>Tải bộ ảnh, ảnh động và bản photobooth để nhận QR cùng mã album.</small></span></div>{galleryShare ? <button className="gallery-ready-button" onClick={() => setGalleryShareOpen(true)}><Eye size={17} /> Xem QR · {galleryShare.shareCode.toUpperCase()}</button> : <button className="primary-button" onClick={() => void publishLiveGallery()} disabled={publishingGallery}>{publishingGallery ? <LoaderCircle className="spin" /> : <ImageIcon />} {publishingGallery ? 'Đang tạo album…' : 'Tạo mã QR LiveGallery'}</button>}</section>}
               <section className="download-card"><div><ImageIcon /><span><strong>{outputSize.width} × {outputSize.height} px</strong><small>{editorPanelTab === 'background' ? 'Ảnh nền ghép chất lượng cao' : 'Ảnh chất lượng cao'}</small></span></div><div className="format-switch"><button className={format === 'png' ? 'selected' : ''} onClick={() => setFormat('png')}>PNG</button><button className={format === 'jpeg' ? 'selected' : ''} onClick={() => setFormat('jpeg')}>JPG</button></div><button className="primary-button" onClick={exportPhoto} disabled={exporting}>{exporting ? <LoaderCircle className="spin" /> : <Download />} {exporting ? 'Đang tạo ảnh…' : editorPanelTab === 'background' ? 'Tải ảnh ghép' : 'Tải ảnh về'}</button></section>
             </div>
