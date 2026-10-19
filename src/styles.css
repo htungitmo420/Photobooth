@@ -201,6 +201,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .editor-tabs { display: flex; gap: 4px; flex: 0 0 auto; margin-top: 12px; padding: 4px; border-radius: 12px; background: var(--cream); }
 .editor-tabs button { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; cursor: pointer; }
 .editor-tabs button.selected { background: white; color: var(--coral-dark); box-shadow: 0 2px 8px rgba(68,43,30,.1); }
+.editor-tabs-single { align-items: center; }
+.editor-tabs-single > button { flex: 0 0 min(300px, 44%); }
+.editor-tabs-note { color: var(--muted); flex: 1; font-size: 12px; padding: 0 12px; text-align: center; }
 .control-section { padding: 24px 0; border-bottom: 1px solid var(--line); }
 .control-section h3 { margin: 0 0 13px; font-size: 15px; }
 .section-line { display: flex; align-items: center; justify-content: space-between; }

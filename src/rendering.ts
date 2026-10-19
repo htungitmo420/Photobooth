@@ -91,9 +91,7 @@ export async function composeStrip(session: BoothSession, scale = 1) {
     Promise.all(session.photos.map((photo) => loadImage(photo.dataUrl))),
     session.frame.assetUrl ? loadImage(session.frame.assetUrl) : Promise.resolve(null),
   ])
-  const dimensions = overlay
-    ? { width: overlay.naturalWidth, height: overlay.naturalHeight }
-    : getFrameSize(session.layout, session.frame)
+  const dimensions = getFrameSize(session.layout, session.frame)
   const width = Math.round(dimensions.width * scale)
   const height = Math.round(dimensions.height * scale)
   const canvas = document.createElement('canvas')
@@ -313,7 +311,7 @@ export async function composeCollage(session: BoothSession, settings: CollageSet
 
 export async function canvasToBlob(canvas: HTMLCanvasElement, format: 'png' | 'jpeg') {
   const type = format === 'png' ? 'image/png' : 'image/jpeg'
-  const quality = format === 'jpeg' ? 0.92 : undefined
+  const quality = format === 'jpeg' ? 0.96 : undefined
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Không thể mã hóa ảnh.')), type, quality)
   })

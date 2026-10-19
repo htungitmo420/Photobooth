@@ -876,10 +876,9 @@ export default function App() {
 
           <div className="editor-panel">
             <div className="editor-title"><div><p className="eyebrow">Bước cuối</p><h1>Thêm chút dấu ấn</h1></div><button className="text-button new-session-button" onClick={reset} aria-label="Chụp bộ mới"><RefreshCcw size={16} /><span>Chụp bộ mới</span></button></div>
-            <div className="editor-tabs" role="group" aria-label="Tùy chỉnh ảnh">
-              <button aria-pressed={editorPanelTab === 'design'} className={editorPanelTab === 'design' ? 'selected' : ''} onClick={() => setEditorPanelTab('design')}>Bộ lọc & khung</button>
-              <button aria-pressed={editorPanelTab === 'stickers'} className={editorPanelTab === 'stickers' ? 'selected' : ''} onClick={() => setEditorPanelTab('stickers')}>Sticker {stickers.length > 0 && `(${stickers.length})`}</button>
-              <button aria-pressed={editorPanelTab === 'background'} className={editorPanelTab === 'background' ? 'selected' : ''} onClick={() => setEditorPanelTab('background')}>Nền ghép {collageSettings.items.length > 1 && `(${collageSettings.items.length})`}</button>
+            <div className="editor-tabs editor-tabs-single" role="group" aria-label="Tùy chỉnh ảnh">
+              <button aria-pressed="true" className="selected">Bộ lọc & khung</button>
+              <span className="editor-tabs-note">Sticker và nền ghép sẽ chỉnh tiếp trong LiveGallery.</span>
             </div>
 
             {editorPanelTab === 'design' && <div className="editor-design">

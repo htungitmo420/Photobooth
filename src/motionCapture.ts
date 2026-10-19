@@ -5,8 +5,8 @@ export const MOTION_DURATION_MS = 6000
 const GIF_FRAME_DELAY_MS = 500
 const VIDEO_WIDTH = 720
 const VIDEO_HEIGHT = 540
-const GIF_WIDTH = 400
-const GIF_HEIGHT = 300
+const GIF_WIDTH = 720
+const GIF_HEIGHT = 540
 
 export type CaptureMode = 'photo' | 'photo-gallery'
 
@@ -153,7 +153,7 @@ export function encodeGifFrames(frames: ImageData[], delay: number) {
   if (frames.length === 0) throw new Error('Không thu được khung hình để tạo GIF.')
   const gif = GIFEncoder()
   frames.forEach((frame) => {
-    const palette = quantize(frame.data, 128)
+    const palette = quantize(frame.data, 256)
     const indexed = applyPalette(frame.data, palette)
     gif.writeFrame(indexed, frame.width, frame.height, { palette, delay, repeat: 0 })
   })

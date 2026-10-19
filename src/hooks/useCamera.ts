@@ -67,8 +67,8 @@ export function useCamera() {
     try {
       let stream: MediaStream
       const video: MediaTrackConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        : { facingMode: { ideal: nextFacing }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        ? { deviceId: { exact: deviceId }, width: { ideal: 2560 }, height: { ideal: 1440 } }
+        : { facingMode: { ideal: nextFacing }, width: { ideal: 2560 }, height: { ideal: 1440 } }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video, audio: false })
       } catch (initialError) {
@@ -150,7 +150,7 @@ export function useCamera() {
       context.scale(-1, 1)
     }
     context.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.94)
+    return canvas.toDataURL('image/jpeg', 0.97)
   }, [])
 
   useEffect(() => stop, [stop])
