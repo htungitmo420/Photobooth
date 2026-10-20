@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSourceCrop, type CameraTransform } from '../cameraGeometry'
+import {
+  getCaptureCanvasSize,
+  getHighestCameraConstraints,
+  REQUESTED_CAMERA_HEIGHT,
+  REQUESTED_CAMERA_WIDTH,
+} from '../cameraResolution'
 
 export type CameraFacing = 'user' | 'environment'
 
@@ -30,6 +36,7 @@ export function useCamera() {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [torchSupported, setTorchSupported] = useState(false)
+  const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null)
 
   const getTrack = useCallback(() => streamRef.current?.getVideoTracks()[0] ?? null, [])
 
@@ -41,6 +48,7 @@ export function useCamera() {
     setActive(false)
     setLoading(false)
     setTorchSupported(false)
+    setResolution(null)
   }, [])
 
   const refreshDevices = useCallback(async () => {
@@ -67,8 +75,8 @@ export function useCamera() {
     try {
       let stream: MediaStream
       const video: MediaTrackConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 2560 }, height: { ideal: 1440 } }
-        : { facingMode: { ideal: nextFacing }, width: { ideal: 2560 }, height: { ideal: 1440 } }
+        ? { deviceId: { exact: deviceId }, width: { ideal: REQUESTED_CAMERA_WIDTH }, height: { ideal: REQUESTED_CAMERA_HEIGHT } }
+        : { facingMode: { ideal: nextFacing }, width: { ideal: REQUESTED_CAMERA_WIDTH }, height: { ideal: REQUESTED_CAMERA_HEIGHT } }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video, audio: false })
       } catch (initialError) {
@@ -83,14 +91,25 @@ export function useCamera() {
       }
       streamRef.current = stream
       const track = stream.getVideoTracks()[0]
-      const settings = track.getSettings()
       const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() as ExtendedCapabilities : {}
+      const highestResolution = getHighestCameraConstraints(capabilities)
+      if (Object.keys(highestResolution).length > 0) {
+        try {
+          await track.applyConstraints(highestResolution)
+        } catch {
+          // Keep the best resolution negotiated by getUserMedia when a camera rejects its reported maxima as a pair.
+        }
+      }
+      const settings = track.getSettings()
       setTorchSupported(capabilities.torch === true)
       setSelectedDeviceId(settings.deviceId ?? deviceId ?? null)
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         await videoRef.current.play()
       }
+      const actualWidth = videoRef.current?.videoWidth || settings.width || 0
+      const actualHeight = videoRef.current?.videoHeight || settings.height || 0
+      setResolution(actualWidth > 0 && actualHeight > 0 ? { width: actualWidth, height: actualHeight } : null)
       setFacing(nextFacing)
       setActive(true)
       await refreshDevices()
@@ -141,10 +160,13 @@ export function useCamera() {
     if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return null
     const crop = getSourceCrop(video.videoWidth, video.videoHeight, targetAspect, transform)
     const canvas = document.createElement('canvas')
-    canvas.width = Math.min(1920, Math.round(crop.width))
-    canvas.height = Math.round(canvas.width / targetAspect)
+    const captureSize = getCaptureCanvasSize(crop.width, crop.height)
+    canvas.width = captureSize.width
+    canvas.height = captureSize.height
     const context = canvas.getContext('2d')
     if (!context) return null
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
     if (mirror) {
       context.translate(canvas.width, 0)
       context.scale(-1, 1)
@@ -156,7 +178,7 @@ export function useCamera() {
   useEffect(() => stop, [stop])
 
   return {
-    videoRef, active, loading, error, facing, devices, selectedDeviceId, torchSupported,
+    videoRef, active, loading, error, facing, devices, selectedDeviceId, torchSupported, resolution,
     start, stop, switchFacing, selectDevice, setTorch, measureBrightness, capture,
   }
 }

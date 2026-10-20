@@ -25,7 +25,7 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
 
   useEffect(() => {
     let cancelled = false
-    composeStrip(session, 0.45).then((canvas) => {
+    composeStrip(session, 0.75).then((canvas) => {
       if (cancelled) return
       setStripSize({ width: canvas.width, height: canvas.height })
       setStripUrl(canvas.toDataURL('image/png'))

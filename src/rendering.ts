@@ -99,6 +99,8 @@ export async function composeStrip(session: BoothSession, scale = 1) {
   canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Không thể tạo canvas xuất ảnh.')
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
 
   const frameAnalysis = overlay && session.frame.assetUrl
     ? await analyzeFrame(session.frame.assetUrl, overlay, session.layout.slots)
@@ -311,7 +313,7 @@ export async function composeCollage(session: BoothSession, settings: CollageSet
 
 export async function canvasToBlob(canvas: HTMLCanvasElement, format: 'png' | 'jpeg') {
   const type = format === 'png' ? 'image/png' : 'image/jpeg'
-  const quality = format === 'jpeg' ? 0.96 : undefined
+  const quality = format === 'jpeg' ? 0.97 : undefined
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Không thể mã hóa ảnh.')), type, quality)
   })

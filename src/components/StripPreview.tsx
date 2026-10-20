@@ -54,7 +54,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
     const fit = () => {
       const sideSpace = interactive ? Math.min(64, Math.max(24, parent.clientWidth * .14)) : 12
       const verticalSpace = interactive ? Math.min(38, parent.clientHeight * .07) : 12
-      const scale = Math.min(
+      const scale = Math.min(1,
         Math.max(1, parent.clientWidth - sideSpace * 2) / outputSize.width,
         Math.max(1, parent.clientHeight - verticalSpace * 2) / outputSize.height,
       )

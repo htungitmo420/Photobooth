@@ -813,6 +813,7 @@ export default function App() {
             {camera.devices.length > 1 && <label className="device-picker">Máy ảnh<select value={camera.selectedDeviceId ?? ''} onChange={(event) => selectCamera(event.target.value)} disabled={capturing}>{camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}</select></label>}
             <div className="zoom-source"><span>Điều khiển zoom</span><div role="group" aria-label="Cách điều khiển zoom"><button className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => { setZoomModeOverride('web'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trong web</button><button className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => { setZoomModeOverride('device'); setCameraTransform(DEFAULT_CAMERA_TRANSFORM) }} disabled={capturing}>Trên máy ảnh</button></div></div>
             <p className="camera-capability"><Zap size={14} /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
+            {camera.resolution && <p className="camera-capability"><ImageIcon size={14} /> Camera đang cấp {camera.resolution.width} × {camera.resolution.height} px</p>}
             <div className={`photo-slots ${captureTarget > 4 ? 'many' : ''}`}>
               {Array.from({ length: captureTarget }, (_, index) => (
                 <div key={index} className={capturePool[index] ? 'filled' : ''}>
