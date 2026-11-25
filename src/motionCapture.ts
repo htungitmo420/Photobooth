@@ -69,39 +69,10 @@ export async function createPhotoMotionClip(sources: string[]): Promise<MotionCl
   })
   const gifBlob = encodeGifFrames(gifFrames, frameDelayMs)
 
-  let videoBlob: Blob | null = null
-  if (typeof MediaRecorder !== 'undefined') {
-    const canvas = document.createElement('canvas')
-    canvas.width = VIDEO_WIDTH
-    canvas.height = VIDEO_HEIGHT
-    const context = canvas.getContext('2d')
-    if (context && typeof canvas.captureStream === 'function') {
-      const stream = canvas.captureStream(12)
-      const mimeType = selectRecorderMimeType(MediaRecorder.isTypeSupported.bind(MediaRecorder))
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 2_500_000 } : undefined)
-      const chunks: BlobPart[] = []
-      const stopped = new Promise<void>((resolve, reject) => {
-        recorder.addEventListener('dataavailable', (event) => { if (event.data.size > 0) chunks.push(event.data) })
-        recorder.addEventListener('stop', () => resolve(), { once: true })
-        recorder.addEventListener('error', () => reject(new Error('Không thể tạo video từ các ảnh.')), { once: true })
-      })
-      recorder.start(200)
-      for (const image of images) {
-        drawPhotoCover(context, image, VIDEO_WIDTH, VIDEO_HEIGHT)
-        await new Promise<void>((resolve) => window.setTimeout(resolve, frameDelayMs))
-      }
-      recorder.stop()
-      await stopped
-      stream.getTracks().forEach((track) => track.stop())
-      const encoded = new Blob(chunks, { type: recorder.mimeType || 'video/webm' })
-      if (encoded.size > 0) videoBlob = encoded
-    }
-  }
-
   return {
-    videoBlob,
+    videoBlob: null,
     gifBlob,
-    videoUrl: videoBlob ? URL.createObjectURL(videoBlob) : null,
+    videoUrl: null,
     gifUrl: URL.createObjectURL(gifBlob),
     durationMs: getPhotoMotionDuration(images.length),
   }
