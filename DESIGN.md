@@ -30,7 +30,7 @@ Shared visual direction for **Khoảnh Khắc Photobooth** and **Khoảnh Khắc
 - `--bg: #f3efe6` (Warm archival paper background)
 - `--surface: #fcfaf5` (Elevated paper panel surface)
 - `--surface-2: #e7e0d2` (Recessed control tray)
-- `--stage: #141210` (Matte darkroom light-table and camera housing, preserved for visual drama and print contrast)
+- `--stage: #141210` (Matte darkroom light-table and camera housing, kept dark so prints retain tonal contrast)
 - `--ink: #171412` (Primary ink, > 15:1 contrast)
 - `--muted: #5c534a` (Secondary copy, > 5.8:1 contrast across all light surfaces)
 - `--line: #d6cbb9` (Structural divider)

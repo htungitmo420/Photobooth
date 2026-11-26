@@ -55,7 +55,7 @@ Nguồn chi tiết: [mã photobooth](https://github.com/htungitmo420/sticker-stu
 
 Hướng triển khai là viết mã mới từ trải nghiệm đã chọn. Khi khảo sát chưa thấy file LICENSE trong cây repo và GitHub trả `license: null`; nếu muốn mang mã hoặc tài nguyên từ nguồn sang, cần xác minh quyền sử dụng từng phần trước. Tài nguyên mặc định nên tự tạo hoặc chọn nguồn có giấy phép rõ ràng.
 
-## 3. Phạm vi bản đầu — P0
+## 3. Phạm vi bản đầu: P0
 
 P0 là phiên bản hoàn chỉnh có thể phát hành, không chỉ là bản giao diện mẫu.
 
@@ -77,9 +77,9 @@ Sticker chỉ là trang trí cho bộ ảnh. Không có thư viện asset lớn,
 
 ## 4. Các phần để sau và ngoài phạm vi
 
-**P1 — phạm vi đã được chấp nhận ngày 14/10/2026:**
+**P1: phạm vi đã được chấp nhận ngày 14/10/2026:**
 
-### P1.1 — Camera phủ kín khung, zoom và căn lại ảnh
+### P1.1: Camera phủ kín khung, zoom và căn lại ảnh
 
 - Khung camera khi chụp luôn phủ kín vùng xem trước theo tỷ lệ của ô ảnh hiện tại. Dùng crop kiểu `cover`, không kéo méo và không để lộ viền đen trong vùng ảnh dù nguồn là 4:3, 16:9 hay 9:16.
 - Cho phép zoom bằng thanh trượt và cử chỉ pinch; kéo ảnh để căn lại chủ thể, nhấn đúp để đặt lại. Giới hạn độ lệch để người dùng không thể kéo nguồn ảnh ra khỏi mép khung.
@@ -87,7 +87,7 @@ Sticker chỉ là trang trí cho bộ ảnh. Không có thư viện asset lớn,
 - Đọc khả năng của video track sau khi camera sẵn sàng. Nếu thiết bị công bố dải zoom thì ưu tiên zoom của camera; nếu không có hoặc áp dụng thất bại thì dùng crop/scale bằng phần mềm.
 - Khi đổi camera, đặt lại hoặc hiệu chỉnh zoom theo khả năng của camera mới; không giữ một giá trị mà thiết bị mới không hỗ trợ.
 
-### P1.2 — Thư viện sticker và thao tác trực tiếp
+### P1.2: Thư viện sticker và thao tác trực tiếp
 
 - Mở rộng 8 sticker P0 thành thư viện sticker theo nhóm, ưu tiên các nhóm: Tất cả, Dễ thương, Chữ, Thiên nhiên, Hình khối, May mắn và Retro. Thanh sticker nhanh và bảng thư viện mở rộng cùng dùng một nguồn dữ liệu.
 - Chạm/bấm sticker để thêm vào dải ảnh; hỗ trợ kéo thả bằng chuột hoặc cảm ứng, phóng to/thu nhỏ, xoay, lật ngang, đưa lên trước, nhân bản và xóa ngay trên bản xem trước.
@@ -96,7 +96,7 @@ Sticker chỉ là trang trí cho bộ ảnh. Không có thư viện asset lớn,
 - Metadata sticker lưu trong bảng `photobooth_stickers`; asset PNG/WebP hoặc SVG đã kiểm tra lưu trong bucket công khai `photobooth-stickers`. Public chỉ được đọc asset đã phát hành; quyền ghi dành cho service role/admin theo migration và RLS.
 - Metadata tối thiểu: `id`, `name`, `category`, `tags`, `asset_path`, `width`, `height`, `sort_order`, `is_published`, `created_at`, `updated_at`. Tải lười thumbnail, cache asset và dùng preset cục bộ khi Supabase tạm thời không truy cập được.
 
-### P1.3 — Flash thích ứng và camera ngoài
+### P1.3: Flash thích ứng và camera ngoài
 
 - Có ba chế độ **Tắt / Tự động / Bật**. Chế độ Tự động lấy mẫu frame video thu nhỏ ngay trên thiết bị để ước lượng độ sáng; dùng ngưỡng có hysteresis để trạng thái không bật/tắt liên tục. Không tải frame đo sáng lên mạng.
 - Thứ tự thực hiện khi cần flash: dùng torch/đèn của track nếu trình duyệt và camera công bố khả năng điều khiển; nếu không thì dùng flash màn hình toàn màn hình màu trắng ấm, tăng sáng trước khi chụp một khoảng ngắn rồi khôi phục giao diện.
@@ -105,7 +105,7 @@ Sticker chỉ là trang trí cho bộ ảnh. Không có thư viện asset lớn,
 - Camera ngoài có flash vật lý chỉ được điều khiển khi camera và driver đưa capability tương thích cho trình duyệt. Nếu không có capability, giao diện báo rõ “Thiết bị không cho trình duyệt điều khiển flash” và chuyển sang flash màn hình; không giả định mọi webcam/DSLR có flash đều điều khiển được qua web.
 - Thực hiện một bước thử nghiệm riêng với các camera ngoài mục tiêu. Thiết bị cần hot-shoe, SDK hãng hoặc trigger USB riêng sẽ được ghi thành tích hợp thiết bị cụ thể sau P1 web, không chặn luồng flash màn hình.
 
-### P1.4 — Countdown tùy chỉnh và frame cá nhân
+### P1.4: Countdown tùy chỉnh và frame cá nhân
 
 - Người dùng nhập countdown từ 0–30 giây; giá trị được nhớ trong `localStorage` cho lần mở sau. Giá trị 0 chụp ngay, các giá trị còn lại vẫn phát tín hiệu theo từng giây nếu âm thanh được bật.
 - Người dùng thêm frame PNG/WebP tối đa 5 MB cho bố cục đang chọn. Ứng dụng kiểm tra MIME, khả năng giải mã và tỷ lệ khung trước khi lưu.
@@ -139,14 +139,14 @@ flowchart LR
     F --> A
 ```
 
-### Bước 1 — Chuẩn bị
+### Bước 1: Chuẩn bị
 
 - Mở `/` là thấy khu vực photobooth và 3 thumbnail bố cục, không cần đi qua landing page dài.
 - Nút chính: **Bật camera**. Ghi chú bên cạnh: “Ảnh được xử lý trên thiết bị của bạn”.
 - Sau khi camera sẵn sàng, cho chọn thời gian đếm ngược và ảnh gương; tùy chọn khác thu gọn.
 - Hiển thị vùng ảnh sẽ được lấy vào ô để người dùng đứng đúng vị trí.
 
-### Bước 2 — Chụp
+### Bước 2: Chụp
 
 - Nút **Bắt đầu chụp** chạy chuỗi đủ 3 hoặc 4 ảnh theo bố cục.
 - Mỗi ảnh có đếm ngược riêng. Số đếm lớn, tiến độ rõ; ảnh đã chụp xuất hiện ở thumbnail.
@@ -154,7 +154,7 @@ flowchart LR
 - Hủy giữ các ô đã chụp, quay về trạng thái chuẩn bị và cho **Chụp tiếp** vào các ô còn thiếu.
 - Khi tab bị ẩn trong lúc chụp, hủy phần chuỗi chưa thực hiện; không tự chụp âm thầm khi quay lại.
 
-### Bước 3 — Xem lại và hoàn thiện
+### Bước 3: Xem lại và hoàn thiện
 
 - Chỉ chuyển sang bước này khi tất cả các ô có ảnh.
 - Dải ảnh là phần lớn nhất trên màn hình; bộ lọc, khung và trang trí nằm cạnh hoặc dưới.
@@ -163,7 +163,7 @@ flowchart LR
 - Đổi khung, bộ lọc, caption và sticker cập nhật ngay; ảnh gốc được giữ để có thể trở về bộ lọc Gốc.
 - Khóa bố cục từ khi có ảnh. Muốn đổi số ô phải bắt đầu bộ mới, tránh tự bỏ ảnh.
 
-### Bước 4 — Lưu
+### Bước 4: Lưu
 
 - Nút **Tải ảnh** đặt rõ ràng; tùy chọn PNG/JPEG ngay gần đó.
 - Trong khi xuất, khóa nút để tránh tạo nhiều file; lỗi không làm mất phiên chỉnh sửa.
@@ -268,7 +268,7 @@ photobooth/
 
 ## 9. Các giai đoạn triển khai
 
-### Giai đoạn A — Dựng nền và giao diện
+### Giai đoạn A: Dựng nền và giao diện
 
 - [x] Khởi tạo React/TypeScript/Vite trong repo hiện tại, thêm lockfile, `.gitignore`, README và scripts dev/build/typecheck/test.
 - [x] Định nghĩa kiểu dữ liệu, state phiên, 3 layout và 6 khung; tạo preset không phụ thuộc asset bên ngoài.
@@ -278,7 +278,7 @@ photobooth/
 
 **Điều kiện xong:** giao diện thể hiện đủ luồng bằng dữ liệu mẫu; dự án build thành ứng dụng tĩnh.
 
-### Giai đoạn B — Camera và chuỗi chụp
+### Giai đoạn B: Camera và chuỗi chụp
 
 - [x] Tích hợp quyền camera, trạng thái video sẵn sàng, mirror và đổi camera.
 - [x] Chụp đúng số ô, timer cho từng ảnh, hủy/chụp tiếp và chống bấm trùng.
@@ -287,7 +287,7 @@ photobooth/
 
 **Điều kiện xong:** tạo được bộ ảnh thật đầy đủ; hủy/chụp lại không làm hỏng hoặc ghi nhầm ảnh.
 
-### Giai đoạn C — Hoàn thiện bộ ảnh
+### Giai đoạn C: Hoàn thiện bộ ảnh
 
 - [x] Xây renderer dùng chung; kiểm tra hình học, thứ tự ô và tỷ lệ trên từng layout.
 - [x] Thêm 6 bộ lọc, 6 khung, caption/ngày và sticker với điều khiển giới hạn.
@@ -296,7 +296,7 @@ photobooth/
 
 **Điều kiện xong:** người dùng đi hết luồng từ camera đến file ảnh mà không cần tài khoản hoặc API ngoài.
 
-### Giai đoạn D — Kiểm thử và phát hành
+### Giai đoạn D: Kiểm thử và phát hành
 
 - [ ] Hoàn thành các ca nghiệm thu bên dưới; sửa lỗi trên mobile/Safari trước phát hành.
 - [ ] Kiểm tra bàn phím, focus, giảm chuyển động và chữ tiếng Việt.
@@ -307,7 +307,7 @@ photobooth/
 
 **Điều kiện xong:** repo mới có mã nguồn, CI đạt và website thực tế chụp/xuất được trên nhóm thiết bị mục tiêu.
 
-### Giai đoạn E — P1: zoom, sticker và flash
+### Giai đoạn E: P1: zoom, sticker và flash
 
 - [x] Tách phép biến đổi crop/zoom dùng chung; thêm pan, reset và fallback zoom phần mềm.
 - [x] Bổ sung chọn camera theo thiết bị, đọc capabilities sau mỗi lần đổi camera và xử lý constraint không được hỗ trợ.

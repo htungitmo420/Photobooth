@@ -53,6 +53,14 @@ function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function formatShareHost(url: string) {
+  try {
+    return new URL(url).host
+  } catch {
+    return 'LiveGallery'
+  }
+}
+
 function padFrame(value: number) {
   return String(value).padStart(2, '0')
 }
@@ -1561,7 +1569,7 @@ export default function App() {
               <span>{galleryShare.shareCode.toUpperCase()}</span>
               <Copy size={16} aria-hidden="true" />
             </button>
-            <p>Nhập mã này tại <strong>livegallery.nhtisitmo.workers.dev</strong> hoặc quét QR trên điện thoại.</p>
+            <p>Nhập mã này tại <strong>{formatShareHost(galleryShare.url)}</strong> hoặc quét QR trên điện thoại.</p>
             <a className="primary-button gallery-open-link" href={galleryShare.url} target="_blank" rel="noreferrer">
               <Eye size={17} aria-hidden="true" /> Mở LiveGallery
             </a>
