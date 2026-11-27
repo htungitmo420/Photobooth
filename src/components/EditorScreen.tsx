@@ -25,7 +25,11 @@ import { useLocale } from '../i18n/useLocale'
 import type { RemoteBackground } from '../lib/backgrounds'
 import { COLLAGE_BACKGROUNDS, padFrame } from '../lib/boothUtils'
 import type { LocalBackground } from '../lib/localBackgrounds'
-import { downloadMotionBlob, type CaptureMode, type MotionClip } from '../motionCapture'
+import {
+  downloadMotionBlob,
+  extensionForVideoMime,
+  type MotionClip,
+} from '../motionCapture'
 import { FILTERS, STICKER_CATEGORIES } from '../presets'
 import type {
   BoothFrame,
@@ -44,8 +48,6 @@ interface EditorScreenProps {
   editorPanelTab: 'design' | 'stickers' | 'background'
   outputSize: { width: number; height: number }
   photos: CapturedPhoto[]
-  candidatePhotos: CapturedPhoto[]
-  captureMode: CaptureMode
   motionClip: MotionClip | null
   visibleFrames: BoothFrame[]
   remoteFrames: boolean
@@ -110,8 +112,6 @@ export function EditorScreen({
   editorPanelTab,
   outputSize,
   photos,
-  candidatePhotos,
-  captureMode,
   motionClip,
   visibleFrames,
   remoteFrames,
@@ -173,7 +173,6 @@ export function EditorScreen({
   const { locale, messages } = useLocale()
   const frameInputRef = useRef<HTMLInputElement>(null)
   const backgroundInputRef = useRef<HTMLInputElement>(null)
-  const motionPhotoCount = (captureMode === 'photo-gallery' && candidatePhotos.length ? candidatePhotos : photos).length
 
   return (
     <section className="editor-layout">
@@ -222,8 +221,8 @@ export function EditorScreen({
           ))}
           {motionClip && (
             <button type="button" className="motion-review-button" onClick={onOpenMotionPreview}>
-              <img src={motionClip.gifUrl} alt={messages.editor.motionAlt} />
-              <span><Video size={13} aria-hidden="true" /> GIF</span>
+              <img src={motionClip.posterUrl} alt={messages.editor.motionAlt} />
+              <span><Video size={13} aria-hidden="true" /> LIVE</span>
             </button>
           )}
         </div>
@@ -461,23 +460,30 @@ export function EditorScreen({
         )}
 
         <div className="export-stack">
-          {motionClip && (
+          {motionClip && motionClip.videoBlob && (
             <section className="motion-export-card">
               <div>
                 <Video size={18} aria-hidden="true" />
                 <span>
-                  <strong>{messages.editor.motionCardTitle}</strong>
+                  <strong>{messages.editor.movingStripTitle}</strong>
                   <small>
-                    {messages.editor.motionCardDesc(
-                      motionPhotoCount,
+                    {messages.editor.movingStripDesc(
                       (motionClip.durationMs / 1000).toLocaleString(getIntlLocaleTag(locale)),
                     )}
                   </small>
                 </span>
               </div>
               <div>
-                <button type="button" onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}>
-                  <Download size={15} aria-hidden="true" /> GIF
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadMotionBlob(
+                      motionClip.videoBlob!,
+                      extensionForVideoMime(motionClip.videoMimeType ?? motionClip.videoBlob!.type),
+                    )}
+                >
+                  <Download size={15} aria-hidden="true" />{' '}
+                  {extensionForVideoMime(motionClip.videoMimeType ?? motionClip.videoBlob.type).toUpperCase()}
                 </button>
               </div>
             </section>

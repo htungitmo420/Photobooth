@@ -28,6 +28,7 @@ function describeCameraError(error: unknown): string {
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const burstCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const requestRef = useRef(0)
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -175,10 +176,42 @@ export function useCamera() {
     return canvas.toDataURL('image/jpeg', 0.97)
   }, [])
 
+  const captureBurstFrame = useCallback(
+    (mirror: boolean, transform: CameraTransform, targetAspect = 4 / 3, maxWidth = 640) => {
+      const video = videoRef.current
+      if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return null
+      const crop = getSourceCrop(video.videoWidth, video.videoHeight, targetAspect, transform)
+      const width = Math.max(240, Math.min(maxWidth, Math.round(crop.width)))
+      const height = Math.max(180, Math.round(width / targetAspect))
+      let canvas = burstCanvasRef.current
+      if (!canvas) {
+        canvas = document.createElement('canvas')
+        burstCanvasRef.current = canvas
+      }
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width
+        canvas.height = height
+      }
+      const context = canvas.getContext('2d')
+      if (!context) return null
+      context.save()
+      context.imageSmoothingEnabled = true
+      context.imageSmoothingQuality = 'high'
+      if (mirror) {
+        context.translate(width, 0)
+        context.scale(-1, 1)
+      }
+      context.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, width, height)
+      context.restore()
+      return canvas.toDataURL('image/jpeg', 0.86)
+    },
+    [],
+  )
+
   useEffect(() => stop, [stop])
 
   return {
     videoRef, active, loading, error, facing, devices, selectedDeviceId, torchSupported, resolution,
-    start, stop, switchFacing, selectDevice, setTorch, measureBrightness, capture,
+    start, stop, switchFacing, selectDevice, setTorch, measureBrightness, capture, captureBurstFrame,
   }
 }

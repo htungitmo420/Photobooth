@@ -8,7 +8,7 @@ export interface GalleryPublishInput {
   selectedPhotoIds: string[]
   photos: CapturedPhoto[]
   stripBlob: Blob
-  motion: MotionClip
+  motion?: MotionClip | null
 }
 
 export interface GalleryShare {
@@ -24,7 +24,7 @@ export interface PublishGalleryOptions {
   retryDelayMs?: number
 }
 
-export type UploadFileRole = 'strip' | 'gif' | 'photo'
+export type UploadFileRole = 'strip' | 'video' | 'photo'
 
 export interface PreparedUploadFile {
   role: UploadFileRole

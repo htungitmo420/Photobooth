@@ -126,14 +126,16 @@ export async function publishMultipart(params: {
   preparedFiles: readonly PreparedUploadFile[]
   fetchFn: typeof fetch
 }): Promise<GalleryShare> {
-  const [stripEntry, gifEntry, ...photoEntries] = params.preparedFiles
+  const stripEntry = params.preparedFiles.find((entry) => entry.role === 'strip')
+  const videoEntry = params.preparedFiles.find((entry) => entry.role === 'video')
+  const photoEntries = params.preparedFiles.filter((entry) => entry.role === 'photo')
   const body = new FormData()
   body.set('title', params.title)
   body.set('message', params.message)
   body.set('layoutId', params.layoutId)
   body.set('selectedPhotoIds', JSON.stringify(params.selectedPhotoIds))
-  body.set('strip', stripEntry.file)
-  body.set('loopGif', gifEntry.file)
+  if (stripEntry) body.set('strip', stripEntry.file)
+  if (videoEntry) body.set('movingVideo', videoEntry.file)
   photoEntries.forEach((entry) => body.append('photos', entry.file))
 
   const response = await params.fetchFn(params.endpoint, {

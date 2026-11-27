@@ -18,7 +18,6 @@ import {
 } from './components/BoothModals'
 import { CaptureScreen } from './components/CaptureScreen'
 import { EditorScreen } from './components/EditorScreen'
-import { SelectionScreen } from './components/SelectionScreen'
 import { SetupScreen } from './components/SetupScreen'
 import { NoticeStack, Topbar } from './components/Topbar'
 import { getFrameSize } from './frameSize'
@@ -40,13 +39,22 @@ import {
 } from './lib/boothUtils'
 import type { LocalBackground } from './lib/localBackgrounds'
 import {
-  createPhotoMotionClip,
+  MOTION_BURST_DURATION_MS,
+  MOTION_BURST_INTERVAL_MS,
+  MOTION_BURST_MAX_FRAMES,
   revokeMotionClip,
-  type CaptureMode,
   type MotionClip,
 } from './motionCapture'
 import { FALLBACK_FRAMES, LAYOUTS } from './presets'
-import { composeStripBlob, downloadCollage, downloadStrip } from './rendering'
+import {
+  DEFAULT_MOVING_STRIP_LOOPS,
+  composeStripBlob,
+  createMovingStripClip,
+  downloadCollage,
+  downloadStrip,
+  getMovingStripSessionKey,
+  hasLiveBurstFrames,
+} from './rendering'
 import type {
   AppStep,
   BoothFrame,
@@ -67,12 +75,8 @@ function PhotoboothApp() {
   const [layout, setLayout] = useState(LAYOUTS[1])
   const [frame, setFrame] = useState<BoothFrame>(FALLBACK_FRAMES[0])
   const [photos, setPhotos] = useState<CapturedPhoto[]>([])
-  const [candidatePhotos, setCandidatePhotos] = useState<CapturedPhoto[]>([])
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([])
-  const [captureMode, setCaptureMode] = useState<CaptureMode>('photo')
   const [motionClip, setMotionClip] = useState<MotionClip | null>(null)
   const [motionPhase, setMotionPhase] = useState<'idle' | 'countdown' | 'recording' | 'encoding'>('idle')
-  const [preparingSelection, setPreparingSelection] = useState(false)
   const [countdownSeconds, setCountdownSeconds] = useState(getSavedCountdown)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [capturing, setCapturing] = useState(false)
@@ -104,6 +108,13 @@ function PhotoboothApp() {
   const [galleryShareOpen, setGalleryShareOpen] = useState(false)
   const cancelRef = useRef(0)
   const pausedRef = useRef(false)
+  const motionClipRef = useRef<MotionClip | null>(null)
+  const motionClipKeyRef = useRef('')
+  const inFlightMotionRef = useRef<{
+    key: string
+    promise: Promise<MotionClip | null>
+    controller: AbortController
+  } | null>(null)
   const camera = useCamera()
 
   const handleInitialFramesLoaded = useCallback((loaded: BoothFrame[]) => {
@@ -184,6 +195,82 @@ function PhotoboothApp() {
     stickers,
   }), [layout, frame, filter, photos, caption, showDate, sessionDate, stickers])
 
+  const motionSessionKey = useMemo(() => getMovingStripSessionKey(session), [session])
+
+  const abortInFlightMotion = useCallback(() => {
+    const active = inFlightMotionRef.current
+    if (active) {
+      active.controller.abort()
+      inFlightMotionRef.current = null
+    }
+  }, [])
+
+  const ensureMovingStripForSession = useCallback(
+    async (targetSession: BoothSession, targetKey: string): Promise<MotionClip | null> => {
+      if (!hasLiveBurstFrames(targetSession.photos)) return null
+      if (motionClipRef.current && motionClipKeyRef.current === targetKey) {
+        return motionClipRef.current
+      }
+      if (inFlightMotionRef.current && inFlightMotionRef.current.key === targetKey) {
+        return inFlightMotionRef.current.promise
+      }
+
+      abortInFlightMotion()
+      const controller = new AbortController()
+      const promise = createMovingStripClip(targetSession, {
+        loops: DEFAULT_MOVING_STRIP_LOOPS,
+        signal: controller.signal,
+      })
+        .then((clip) => {
+          if (controller.signal.aborted) {
+            revokeMotionClip(clip)
+            return null
+          }
+          motionClipRef.current = clip
+          motionClipKeyRef.current = targetKey
+          setMotionClip(clip)
+          return clip
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === 'AbortError') return null
+          return null
+        })
+        .finally(() => {
+          if (inFlightMotionRef.current?.controller === controller) {
+            inFlightMotionRef.current = null
+          }
+        })
+
+      inFlightMotionRef.current = { key: targetKey, promise, controller }
+      return promise
+    },
+    [abortInFlightMotion],
+  )
+
+  useEffect(() => () => {
+    abortInFlightMotion()
+  }, [abortInFlightMotion])
+
+  // Background pre-render Moving PhotoStrip while the guest is picking frames/filters/stickers in EditorScreen,
+  // so tapping "Create QR LiveGallery" reuses the ready video clip (0s wait) or joins the in-flight render!
+  useEffect(() => {
+    if (step !== 'edit' || photos.length < layout.slots || !hasLiveBurstFrames(photos)) return
+    if (motionClipRef.current && motionClipKeyRef.current === motionSessionKey) return
+    if (inFlightMotionRef.current?.key === motionSessionKey) return
+    if (inFlightMotionRef.current && inFlightMotionRef.current.key !== motionSessionKey) {
+      abortInFlightMotion()
+    }
+
+    const delayMs = motionClipKeyRef.current ? 420 : 0
+    const timer = window.setTimeout(() => {
+      void ensureMovingStripForSession(session, motionSessionKey)
+    }, delayMs)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [abortInFlightMotion, ensureMovingStripForSession, layout.slots, motionSessionKey, photos, session, step])
+
   const visibleFrames = useMemo(
     () => catalog.frames.filter((item) => !item.layoutId || item.layoutId === layout.id),
     [catalog.frames, layout.id],
@@ -194,8 +281,8 @@ function PhotoboothApp() {
   )
   const selectedSticker = stickers.find((item) => item.id === selectedStickerId) ?? null
   const selectedCollageItem = collageSettings.items.find((item) => item.id === selectedCollageItemId) ?? null
-  const captureTarget = captureMode === 'photo-gallery' ? layout.slots * 2 : layout.slots
-  const capturePool = captureMode === 'photo-gallery' ? candidatePhotos : photos
+  const captureTarget = layout.slots
+  const capturePool = photos
 
   useEffect(() => {
     if (frame.layoutId && frame.layoutId !== layout.id) setFrame(FALLBACK_FRAMES[0])
@@ -227,20 +314,54 @@ function PhotoboothApp() {
     return token === cancelRef.current
   }
 
-  const runCountdown = async (token: number) => {
+  const runCountdown = async (token: number, burstFrames: string[]) => {
+    const activeTransform = zoomMode === 'web' ? cameraTransform : DEFAULT_CAMERA_TRANSFORM
+    let lastBurstAt = 0
+
     for (let remaining = countdownSeconds; remaining > 0; remaining -= 1) {
       if (token !== cancelRef.current) return false
       if (!await waitDuringCapture(0, token)) return false
       setCountdown(remaining)
       playTone(sound)
-      if (!await waitDuringCapture(1000, token)) return false
+
+      let sliceRemaining = 1000
+      while (sliceRemaining > 0) {
+        if (token !== cancelRef.current) return false
+        if (pausedRef.current) {
+          setMotionPhase('idle')
+          await wait(50)
+          continue
+        }
+
+        const totalRemainingMs = (remaining - 1) * 1000 + sliceRemaining
+        if (totalRemainingMs <= MOTION_BURST_DURATION_MS) {
+          setMotionPhase('recording')
+          const now = performance.now()
+          if (now - lastBurstAt >= MOTION_BURST_INTERVAL_MS) {
+            const frameData = camera.captureBurstFrame(mirror, activeTransform)
+            if (frameData) {
+              burstFrames.push(frameData)
+              if (burstFrames.length > MOTION_BURST_MAX_FRAMES) {
+                burstFrames.shift()
+              }
+            }
+            lastBurstAt = now
+          }
+        }
+
+        const step = Math.min(45, sliceRemaining)
+        await wait(step)
+        sliceRemaining -= step
+      }
     }
     setCountdown(null)
+    setMotionPhase('idle')
     return waitDuringCapture(0, token)
   }
 
   const takeFrame = async (token: number) => {
-    const ready = await runCountdown(token)
+    const burstFrames: string[] = []
+    const ready = await runCountdown(token, burstFrames)
     if (!ready) return null
     const brightness = flashMode === 'auto' ? camera.measureBrightness() : null
     const needsFlash = flashMode === 'on' || (flashMode === 'auto' && brightness !== null && brightness < 0.3)
@@ -263,9 +384,14 @@ function PhotoboothApp() {
       const dataUrl = camera.capture(mirror, zoomMode === 'web' ? cameraTransform : DEFAULT_CAMERA_TRANSFORM)
       if (!dataUrl) throw new Error(messages.notices.cameraNotReady)
       playTone(sound, 260)
-      return { id: makeId('photo'), dataUrl } satisfies CapturedPhoto
+      return {
+        id: makeId('photo'),
+        dataUrl,
+        ...(burstFrames.length >= 2 ? { burstFrames } : {}),
+      } satisfies CapturedPhoto
     } finally {
       setScreenFlash(false)
+      setMotionPhase('idle')
       if (torchOn) await camera.setTorch(false)
     }
   }
@@ -282,12 +408,10 @@ function PhotoboothApp() {
       if (retakeIndex !== null) {
         const photo = await takeFrame(token)
         if (photo && token === cancelRef.current) {
-          const replacedId = photos[retakeIndex]?.id
-          setPhotos((current) => current.map((item, index) => index === retakeIndex ? photo : item))
-          if (replacedId) {
-            setCandidatePhotos((current) => current.map((item) => item.id === replacedId ? photo : item))
-            setSelectedCandidateIds((current) => current.map((id) => id === replacedId ? photo.id : id))
-          }
+          const nextPhotos = photos.map((item, index) => (index === retakeIndex ? photo : item))
+          abortInFlightMotion()
+          motionClipKeyRef.current = ''
+          setPhotos(nextPhotos)
           camera.stop()
           setRetakeIndex(null)
           setStep('edit')
@@ -295,20 +419,14 @@ function PhotoboothApp() {
         return
       }
 
-      for (let index = capturePool.length; index < captureTarget; index += 1) {
+      for (let index = photos.length; index < layout.slots; index += 1) {
         const photo = await takeFrame(token)
         if (!photo || token !== cancelRef.current) return
-        if (captureMode === 'photo-gallery') setCandidatePhotos((current) => [...current, photo])
-        else setPhotos((current) => [...current, photo])
-        if (index < captureTarget - 1 && !await waitDuringCapture(800, token)) return
+        setPhotos((current) => [...current, photo])
+        if (index < layout.slots - 1 && !await waitDuringCapture(800, token)) return
       }
       camera.stop()
-      if (captureMode === 'photo-gallery') {
-        setSelectedCandidateIds([])
-        setStep('select')
-      } else {
-        setStep('edit')
-      }
+      setStep('edit')
     } catch (error) {
       setNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.captureFailed)
     } finally {
@@ -346,10 +464,11 @@ function PhotoboothApp() {
     cancelRef.current += 1
     pausedRef.current = false
     setPaused(false)
+    abortInFlightMotion()
+    motionClipRef.current = null
+    motionClipKeyRef.current = ''
     camera.stop()
     setPhotos([])
-    setCandidatePhotos([])
-    setSelectedCandidateIds([])
     setMotionClip(null)
     setMotionPhase('idle')
     setStickers([])
@@ -368,41 +487,6 @@ function PhotoboothApp() {
     setGalleryShare(null)
     setGalleryShareOpen(false)
     setStep('setup')
-  }
-
-  const toggleCandidate = (id: string) => {
-    setSelectedCandidateIds((current) => {
-      if (current.includes(id)) return current.filter((candidate) => candidate !== id)
-      if (current.length >= layout.slots) {
-        setNotice(messages.notices.maxSelection(layout.slots))
-        return current
-      }
-      return [...current, id]
-    })
-  }
-
-  const confirmPhotoSelection = async () => {
-    if (selectedCandidateIds.length !== layout.slots || preparingSelection) return
-    setPreparingSelection(true)
-    setMotionPhase('encoding')
-    setNotice(null)
-    try {
-      const selected = selectedCandidateIds
-        .map((id) => candidatePhotos.find((photo) => photo.id === id))
-        .filter((photo): photo is CapturedPhoto => Boolean(photo))
-      const clip = await createPhotoMotionClip(candidatePhotos.map((photo) => photo.dataUrl))
-      setPhotos(selected)
-      setMotionClip((current) => {
-        revokeMotionClip(current)
-        return clip
-      })
-      setStep('edit')
-    } catch (error) {
-      setNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.motionCreateFailed)
-    } finally {
-      setMotionPhase('idle')
-      setPreparingSelection(false)
-    }
   }
 
   const addSticker = (asset: StickerAsset) => {
@@ -555,28 +639,23 @@ function PhotoboothApp() {
 
   const publishLiveGallery = async () => {
     if (publishingGallery) return
-    const galleryPhotos = captureMode === 'photo-gallery' && candidatePhotos.length === layout.slots * 2
-      ? candidatePhotos
-      : photos
-    if (galleryPhotos.length < layout.slots) {
+    if (photos.length < layout.slots) {
       setNotice(messages.notices.notEnoughGalleryPhotos)
       return
     }
     setPublishingGallery(true)
     setNotice(messages.notices.uploadingGallery)
     try {
-      let clip = motionClip
-      if (!clip) {
-        clip = await createPhotoMotionClip(galleryPhotos.map((photo) => photo.dataUrl))
-        setMotionClip(clip)
-      }
-      const stripBlob = await composeStripBlob(session, 'jpeg')
+      const [clip, stripBlob] = await Promise.all([
+        ensureMovingStripForSession(session, motionSessionKey),
+        composeStripBlob(session, 'jpeg'),
+      ])
       const share = await publishGalleryAlbum({
         title: caption.trim() || messages.notices.defaultAlbumTitle,
         message: collageSettings.message,
         layoutId: layout.id,
         selectedPhotoIds: photos.map((photo) => photo.id),
-        photos: galleryPhotos,
+        photos,
         stripBlob,
         motion: clip,
       })
@@ -611,7 +690,6 @@ function PhotoboothApp() {
     <div className="app-shell">
       <Topbar
         step={step}
-        captureMode={captureMode}
         theme={theme}
         onReset={reset}
         onToggleTheme={toggleTheme}
@@ -623,13 +701,10 @@ function PhotoboothApp() {
         {step === 'setup' && (
           <SetupScreen
             layout={layout}
-            captureMode={captureMode}
-            captureTarget={captureTarget}
             countdownSeconds={countdownSeconds}
             sound={sound}
             flashMode={flashMode}
             onSelectLayout={setLayout}
-            onSelectCaptureMode={setCaptureMode}
             onChangeCountdown={setCountdownSeconds}
             onToggleSound={() => setSound((value) => !value)}
             onSelectFlashMode={setFlashMode}
@@ -641,7 +716,6 @@ function PhotoboothApp() {
           <CaptureScreen
             camera={camera}
             layout={layout}
-            captureMode={captureMode}
             capturePool={capturePool}
             captureTarget={captureTarget}
             retakeIndex={retakeIndex}
@@ -672,24 +746,8 @@ function PhotoboothApp() {
             }}
             onBack={() => {
               camera.stop()
-              setStep(capturePool.length === captureTarget ? (captureMode === 'photo-gallery' ? 'select' : 'edit') : 'setup')
+              setStep(photos.length === layout.slots ? 'edit' : 'setup')
             }}
-          />
-        )}
-
-        {step === 'select' && (
-          <SelectionScreen
-            layout={layout}
-            candidatePhotos={candidatePhotos}
-            selectedCandidateIds={selectedCandidateIds}
-            preparingSelection={preparingSelection}
-            onToggleCandidate={toggleCandidate}
-            onRetakeAll={() => {
-              setCandidatePhotos([])
-              setSelectedCandidateIds([])
-              void enterCamera()
-            }}
-            onConfirmSelection={() => void confirmPhotoSelection()}
           />
         )}
 
@@ -699,8 +757,6 @@ function PhotoboothApp() {
             editorPanelTab={editorPanelTab}
             outputSize={outputSize}
             photos={photos}
-            candidatePhotos={candidatePhotos}
-            captureMode={captureMode}
             motionClip={motionClip}
             visibleFrames={visibleFrames}
             remoteFrames={catalog.remoteFrames}

@@ -75,6 +75,7 @@ export interface BoothMessages {
     cameraOff: string
     retry: string
     countdownPrompt: string
+    recordingLiveBadge: string
     encodingMotion: string
     pausedTitle: string
     pausedDesc: string
@@ -189,6 +190,8 @@ export interface BoothMessages {
     collageHint: string
     motionCardTitle: string
     motionCardDesc: (count: number, seconds: string) => string
+    movingStripTitle: string
+    movingStripDesc: (seconds: string) => string
     galleryCardTitle: string
     galleryCardDesc: string
     viewQrPrefix: string
@@ -238,6 +241,7 @@ export interface BoothMessages {
     retakePhoto: (index: number) => string
     nextPhotoAria: string
     motionTitle: string
+    movingStripTitle: string
     closeMotionAria: string
     motionAlt: string
     downloadVideo: string

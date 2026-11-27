@@ -3,7 +3,6 @@ import type { NoticeItem } from '../hooks/useNotices'
 import type { ThemeMode } from '../hooks/useTheme'
 import { LOCALE_OPTIONS } from '../i18n/core'
 import { useLocale } from '../i18n/useLocale'
-import type { CaptureMode } from '../motionCapture'
 import type { AppStep } from '../types'
 
 function CameraMark({ size = 20 }: { size?: number }) {
@@ -41,21 +40,19 @@ export function LanguageSwitch() {
 
 interface TopbarProps {
   step: AppStep
-  captureMode: CaptureMode
   theme: ThemeMode
   onReset: () => void
   onToggleTheme: () => void
 }
 
-export function Topbar({ step, captureMode, theme, onReset, onToggleTheme }: TopbarProps) {
+export function Topbar({ step, theme, onReset, onToggleTheme }: TopbarProps) {
   const { messages } = useLocale()
   const stepItems = [
     ['setup', '01', messages.topbar.steps.setup],
     ['capture', '02', messages.topbar.steps.capture],
     ['edit', '03', messages.topbar.steps.edit],
   ] as const
-  const progressStep = step === 'select' ? 'capture' : step
-  const currentStepIndex = stepItems.findIndex(([value]) => value === progressStep)
+  const currentStepIndex = stepItems.findIndex(([value]) => value === step)
 
   return (
     <header className="topbar">
@@ -69,7 +66,7 @@ export function Topbar({ step, captureMode, theme, onReset, onToggleTheme }: Top
 
       <nav className="step-rail" aria-label={messages.topbar.progressAria}>
         {stepItems.map(([value, number, label], index) => {
-          const isActive = progressStep === value
+          const isActive = step === value
           const isDone = currentStepIndex > index
           return (
             <div
@@ -89,7 +86,7 @@ export function Topbar({ step, captureMode, theme, onReset, onToggleTheme }: Top
       <div className="topbar-right">
         <div className="privacy-note">
           <ShieldCheck size={15} aria-hidden="true" />
-          <span>{captureMode === 'photo-gallery' ? messages.topbar.privacyGallery : messages.topbar.privacyLocal}</span>
+          <span>{messages.topbar.privacyGallery}</span>
         </div>
         <LanguageSwitch />
         <button

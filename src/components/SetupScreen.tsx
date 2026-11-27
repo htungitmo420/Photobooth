@@ -1,20 +1,16 @@
-import { Camera, Check, Image as ImageIcon, Video, Volume2, VolumeX, Zap } from 'lucide-react'
+import { Camera, Check, Volume2, VolumeX, Zap } from 'lucide-react'
 import { useLocale } from '../i18n/useLocale'
 import { clampCountdown, padFrame } from '../lib/boothUtils'
-import type { CaptureMode } from '../motionCapture'
 import { LAYOUTS } from '../presets'
 import type { BoothLayout, FlashMode } from '../types'
 import { ViewfinderBrackets } from './Topbar'
 
 interface SetupScreenProps {
   layout: BoothLayout
-  captureMode: CaptureMode
-  captureTarget: number
   countdownSeconds: number
   sound: boolean
   flashMode: FlashMode
   onSelectLayout: (layout: BoothLayout) => void
-  onSelectCaptureMode: (mode: CaptureMode) => void
   onChangeCountdown: (seconds: number) => void
   onToggleSound: () => void
   onSelectFlashMode: (mode: FlashMode) => void
@@ -23,13 +19,10 @@ interface SetupScreenProps {
 
 export function SetupScreen({
   layout,
-  captureMode,
-  captureTarget,
   countdownSeconds,
   sound,
   flashMode,
   onSelectLayout,
-  onSelectCaptureMode,
   onChangeCountdown,
   onToggleSound,
   onSelectFlashMode,
@@ -87,11 +80,7 @@ export function SetupScreen({
         <div className="light-table__footer">
           <div className="light-table__summary">
             <strong>{currentLayoutCopy.name}</strong>
-            <span>
-              {captureMode === 'photo-gallery'
-                ? messages.setup.summaryGallery(captureTarget, layout.slots)
-                : messages.setup.summaryPhoto(layout.slots)}
-            </span>
+            <span>{messages.setup.summaryPhoto(layout.slots)}</span>
           </div>
           <span className="mono-tag">
             {padFrame(countdownSeconds)}S · FLASH {flashMode === 'off' ? 'OFF' : flashMode === 'auto' ? 'AUTO' : 'ON'}
@@ -133,36 +122,6 @@ export function SetupScreen({
               </button>
             )
           })}
-        </div>
-
-        <div className="capture-mode-setting">
-          <span className="console-label">{messages.setup.captureModeLabel}</span>
-          <div role="group" aria-label={messages.setup.captureModeAria}>
-            <button
-              type="button"
-              className={captureMode === 'photo' ? 'selected' : ''}
-              aria-pressed={captureMode === 'photo'}
-              onClick={() => onSelectCaptureMode('photo')}
-            >
-              <ImageIcon size={16} aria-hidden="true" />
-              <span>
-                <strong>{messages.setup.photoOnlyTitle}</strong>
-                <small>{messages.setup.photoOnlyDesc(layout.slots)}</small>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={captureMode === 'photo-gallery' ? 'selected' : ''}
-              aria-pressed={captureMode === 'photo-gallery'}
-              onClick={() => onSelectCaptureMode('photo-gallery')}
-            >
-              <Video size={16} aria-hidden="true" />
-              <span>
-                <strong>{messages.setup.photoGalleryTitle}</strong>
-                <small>{messages.setup.photoGalleryDesc(layout.slots * 2)}</small>
-              </span>
-            </button>
-          </div>
         </div>
 
         <div className="quick-settings">

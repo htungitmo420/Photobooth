@@ -1,4 +1,4 @@
-export type AppStep = 'setup' | 'capture' | 'select' | 'edit'
+export type AppStep = 'setup' | 'capture' | 'edit'
 export type LayoutId = 'strip3' | 'strip4' | 'grid4' | 'polaroid'
 export type FilterId = 'original' | 'mono' | 'warm' | 'cool' | 'vintage' | 'soft'
 export type FlashMode = 'off' | 'auto' | 'on'
@@ -37,6 +37,8 @@ export interface BoothFrame {
 export interface CapturedPhoto {
   id: string
   dataUrl: string
+  /** Pre-shutter live motion frames (~1.5s at 10-12 fps) for Moving PhotoStrip video. */
+  burstFrames?: string[]
 }
 
 export interface StickerAsset {

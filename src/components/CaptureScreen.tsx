@@ -16,7 +16,6 @@ import type { useCamera } from '../hooks/useCamera'
 import { localizeBoothError } from '../i18n/core'
 import { useLocale } from '../i18n/useLocale'
 import { padFrame } from '../lib/boothUtils'
-import type { CaptureMode } from '../motionCapture'
 import type { BoothLayout, CapturedPhoto, FlashMode } from '../types'
 import { ViewfinderBrackets } from './Topbar'
 
@@ -25,7 +24,6 @@ type CameraHandle = ReturnType<typeof useCamera>
 interface CaptureScreenProps {
   camera: CameraHandle
   layout: BoothLayout
-  captureMode: CaptureMode
   capturePool: CapturedPhoto[]
   captureTarget: number
   retakeIndex: number | null
@@ -53,7 +51,6 @@ interface CaptureScreenProps {
 export function CaptureScreen({
   camera,
   layout,
-  captureMode,
   capturePool,
   captureTarget,
   retakeIndex,
@@ -112,7 +109,7 @@ export function CaptureScreen({
           {countdown !== null && (
             <div className="countdown">
               <span>{countdown}</span>
-              <small>{messages.capture.countdownPrompt}</small>
+              <small>{motionPhase === 'recording' ? messages.capture.recordingLiveBadge : messages.capture.countdownPrompt}</small>
             </div>
           )}
           {motionPhase === 'encoding' && (
@@ -183,10 +180,7 @@ export function CaptureScreen({
         <div className="capture-side__head">
           <p className="eyebrow">{layoutName} · {padFrame(captureTarget)} {messages.setup.framesUnit}</p>
           <h1>{messages.capture.sideTitle}</h1>
-          <p>
-            {messages.capture.sideBaseDesc(countdownSeconds)}
-            {captureMode === 'photo-gallery' && messages.capture.sideGalleryExtra(captureTarget, layout.slots)}
-          </p>
+          <p>{messages.capture.sideBaseDesc(countdownSeconds)}</p>
         </div>
 
         {camera.devices.length > 1 && (

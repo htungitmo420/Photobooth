@@ -4,7 +4,11 @@ import type { CollageSettings } from '../collage'
 import type { GalleryShare } from '../galleryPublish'
 import { useLocale } from '../i18n/useLocale'
 import { formatShareHost, padFrame } from '../lib/boothUtils'
-import { downloadMotionBlob, type MotionClip } from '../motionCapture'
+import {
+  downloadMotionBlob,
+  extensionForVideoMime,
+  type MotionClip,
+} from '../motionCapture'
 import type { BoothSession, CapturedPhoto } from '../types'
 import { CollagePreview } from './CollagePreview'
 import { StripPreview } from './StripPreview'
@@ -134,13 +138,41 @@ export function MotionPreviewModal({
     <div className="photo-review-modal" role="dialog" aria-modal="true" aria-labelledby="motion-review-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div className="photo-review-card motion-review-card">
         <div className="photo-review-head">
-          <div><p className="eyebrow">LiveGallery</p><h2 id="motion-review-title">{messages.modals.motionTitle}</h2></div>
+          <div>
+            <p className="eyebrow">LiveGallery</p>
+            <h2 id="motion-review-title">{messages.modals.movingStripTitle}</h2>
+          </div>
           <button type="button" autoFocus onClick={onClose} aria-label={messages.modals.closeMotionAria}><X size={18} aria-hidden="true" /></button>
         </div>
-        <div className="photo-review-image"><img src={motionClip.gifUrl} alt={messages.modals.motionAlt} /></div>
+        <div className="photo-review-image">
+          {motionClip.videoUrl ? (
+            <video
+              src={motionClip.videoUrl}
+              poster={motionClip.posterUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              controls
+              style={{ maxHeight: '100%', maxWidth: '100%', borderRadius: '4px' }}
+            />
+          ) : (
+            <img src={motionClip.posterUrl} alt={messages.modals.motionAlt} />
+          )}
+        </div>
         <div className="motion-review-actions">
-          {motionClip.videoBlob && <button type="button" onClick={() => downloadMotionBlob(motionClip.videoBlob!, 'webm')}><Download size={16} aria-hidden="true" /> {messages.modals.downloadVideo}</button>}
-          <button type="button" onClick={() => downloadMotionBlob(motionClip.gifBlob, 'gif')}><Download size={16} aria-hidden="true" /> {messages.modals.downloadGif}</button>
+          {motionClip.videoBlob && (
+            <button
+              type="button"
+              onClick={() =>
+                downloadMotionBlob(
+                  motionClip.videoBlob!,
+                  extensionForVideoMime(motionClip.videoMimeType ?? motionClip.videoBlob!.type),
+                )}
+            >
+              <Download size={16} aria-hidden="true" /> {messages.modals.downloadVideo}
+            </button>
+          )}
         </div>
       </div>
     </div>

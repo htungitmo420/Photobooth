@@ -17,13 +17,13 @@ function makeBase64DataUrl(bytes: number[], mimeType = 'image/jpeg') {
   return `data:${mimeType};base64,${btoa(binary)}`
 }
 
-function makePublishInput(photoCount = 8): GalleryPublishInput {
+function makePublishInput(photoCount = 4): GalleryPublishInput {
   const photos = Array.from({ length: photoCount }, (_, index) => ({
     id: `photo-${index + 1}`,
     dataUrl: makeBase64DataUrl([0xff, 0xd8, 0xff, index + 1, 0x10, 0x20, 0x30], 'image/jpeg'),
   }))
   const stripBlob = new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4])], { type: 'image/jpeg' })
-  const gifBlob = new Blob([new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 5, 6])], { type: 'image/gif' })
+  const videoBlob = new Blob([new Uint8Array([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70])], { type: 'video/mp4' })
 
   return {
     title: '  Đêm tốt nghiệp  ',
@@ -33,11 +33,11 @@ function makePublishInput(photoCount = 8): GalleryPublishInput {
     photos,
     stripBlob,
     motion: {
-      videoBlob: null,
-      gifBlob,
-      videoUrl: null,
-      gifUrl: 'blob:gif-preview',
-      durationMs: photoCount * 750,
+      videoBlob,
+      videoMimeType: 'video/mp4',
+      videoUrl: 'blob:moving-strip',
+      posterUrl: 'blob:poster',
+      durationMs: 4200,
     },
   }
 }
@@ -49,7 +49,7 @@ function makeR2InitUploads(files: Array<{ role: string; name: string; mimeType: 
     name: file.name,
     mimeType: file.mimeType,
     putUrl: `https://acct123.r2.cloudflarestorage.com/photobooth-albums/${albumId}/item-${index}?X-Amz-Signature=sig-${index}`,
-    storagePath: `r2:${albumId}/item-${index}.${file.role === 'gif' ? 'gif' : 'jpg'}`,
+    storagePath: `r2:${albumId}/item-${index}.${file.role === 'video' ? 'mp4' : 'jpg'}`,
   }))
 }
 
@@ -205,7 +205,7 @@ describe('publishGalleryAlbum', () => {
     const initFiles = initBody!.files as Array<{ role: string; name: string; mimeType: string; byteSize: number }>
     expect(initFiles).toHaveLength(10)
     expect(initFiles[0]).toEqual({ role: 'strip', name: 'photobooth.jpg', mimeType: 'image/jpeg', byteSize: 8 })
-    expect(initFiles[1]).toEqual({ role: 'gif', name: 'photobooth.gif', mimeType: 'image/gif', byteSize: 8 })
+    expect(initFiles[1]).toEqual({ role: 'video', name: 'moving-strip.mp4', mimeType: 'video/mp4', byteSize: 8 })
     expect(initFiles[2]).toEqual({ role: 'photo', name: 'photo-01.jpg', mimeType: 'image/jpeg', byteSize: 7 })
     expect(initFiles[9]).toEqual({ role: 'photo', name: 'photo-08.jpg', mimeType: 'image/jpeg', byteSize: 7 })
 
@@ -230,10 +230,10 @@ describe('publishGalleryAlbum', () => {
     })
     expect(completeFiles[1]).toEqual({
       index: 1,
-      role: 'gif',
-      name: 'photobooth.gif',
-      mimeType: 'image/gif',
-      storagePath: 'r2:album-123/item-1.gif',
+      role: 'video',
+      name: 'moving-strip.mp4',
+      mimeType: 'video/mp4',
+      storagePath: 'r2:album-123/item-1.mp4',
     })
   })
 
@@ -443,7 +443,8 @@ describe('publishGalleryAlbum', () => {
     expect(multipartForm!.get('message')).toBe('Chúc mừng bạn!')
     expect(multipartForm!.get('layoutId')).toBe('strip4')
     expect(multipartForm!.get('strip')).toBeInstanceOf(File)
-    expect(multipartForm!.get('loopGif')).toBeInstanceOf(File)
+    expect(multipartForm!.get('movingVideo')).toBeInstanceOf(File)
+    expect(multipartForm!.get('loopGif')).toBeNull()
     expect(multipartForm!.getAll('photos')).toHaveLength(4)
   })
 

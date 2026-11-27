@@ -2,6 +2,7 @@ import type { CapturedPhoto } from '../types'
 import type { GalleryPublishInput, PreparedUploadFile } from './types'
 
 const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const ALLOWED_VIDEO_MIMES = new Set(['video/mp4', 'video/webm', 'video/quicktime'])
 
 export function baseMimeType(raw: string | undefined | null) {
   return (raw ?? '').split(';', 1)[0].trim().toLowerCase()
@@ -12,10 +13,18 @@ export function normalizeImageMime(raw: string | undefined | null) {
   return ALLOWED_IMAGE_MIMES.has(normalized) ? normalized : 'image/jpeg'
 }
 
+export function normalizeVideoMime(raw: string | undefined | null): string | null {
+  const normalized = baseMimeType(raw)
+  return ALLOWED_VIDEO_MIMES.has(normalized) ? normalized : null
+}
+
 export function extensionFor(type: string) {
   const normalized = baseMimeType(type)
   if (normalized === 'image/png') return 'png'
   if (normalized === 'image/webp') return 'webp'
+  if (normalized === 'video/mp4') return 'mp4'
+  if (normalized === 'video/webm') return 'webm'
+  if (normalized === 'video/quicktime') return 'mov'
   return 'jpg'
 }
 
@@ -83,8 +92,6 @@ export async function prepareUploadFiles(
   const stripName = `photobooth.${extensionFor(stripMime)}`
   const stripFile = new File([input.stripBlob], stripName, { type: stripMime })
 
-  const gifFile = new File([input.motion.gifBlob], 'photobooth.gif', { type: 'image/gif' })
-
   const photoFiles = await Promise.all(
     input.photos.map(async (photo, index): Promise<PreparedUploadFile> => {
       const blob = await photoToBlob(photo, fetchFn)
@@ -99,9 +106,22 @@ export async function prepareUploadFiles(
     }),
   )
 
+  const motionVideoBlob = input.motion?.videoBlob ?? null
+  const videoMime = motionVideoBlob && motionVideoBlob.size > 0
+    ? normalizeVideoMime(input.motion?.videoMimeType ?? motionVideoBlob.type)
+    : null
+  const videoEntry: PreparedUploadFile[] = videoMime && motionVideoBlob
+    ? [{
+        role: 'video',
+        name: `moving-strip.${extensionFor(videoMime)}`,
+        mimeType: videoMime,
+        file: new File([motionVideoBlob], `moving-strip.${extensionFor(videoMime)}`, { type: videoMime }),
+      }]
+    : []
+
   return [
     { role: 'strip', name: stripName, mimeType: stripMime, file: stripFile },
-    { role: 'gif', name: 'photobooth.gif', mimeType: 'image/gif', file: gifFile },
+    ...videoEntry,
     ...photoFiles,
   ]
 }
