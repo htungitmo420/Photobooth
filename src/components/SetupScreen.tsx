@@ -1,4 +1,5 @@
 import { Camera, Check, Image as ImageIcon, Video, Volume2, VolumeX, Zap } from 'lucide-react'
+import { useLocale } from '../i18n/useLocale'
 import { clampCountdown, padFrame } from '../lib/boothUtils'
 import type { CaptureMode } from '../motionCapture'
 import { LAYOUTS } from '../presets'
@@ -34,21 +35,23 @@ export function SetupScreen({
   onSelectFlashMode,
   onStartCamera,
 }: SetupScreenProps) {
+  const { messages } = useLocale()
   const specimenFrames = Array.from({ length: layout.slots }, (_, index) => padFrame(index + 1))
+  const currentLayoutCopy = messages.layouts[layout.id]
 
   return (
     <section className="setup-grid">
-      <div className="light-table" aria-label="Xem trước bố cục bản in">
+      <div className="light-table" aria-label={messages.setup.lightTableAria}>
         <div className="light-table__bar">
-          <span className="mono-tag">BÀN SOI 35MM</span>
+          <span className="mono-tag">{messages.setup.lightTableTag}</span>
           <span className="mono-tag mono-tag--accent" data-testid="layout-dimensions">
-            {layout.width} × {layout.height} PX · {padFrame(layout.slots)} KHUNG
+            {layout.width} × {layout.height} PX · {padFrame(layout.slots)} {messages.setup.framesUnit}
           </span>
         </div>
 
         <div className="light-table__copy">
-          <h1>Chụp tại chỗ, in ngay khoảnh khắc.</h1>
-          <p>Chọn khuôn in và chế độ chụp. Máy tự đếm ngược để bạn đổi dáng, sau đó tải bản in hoặc quét QR sang LiveGallery.</p>
+          <h1>{messages.setup.heroTitle}</h1>
+          <p>{messages.setup.heroDesc}</p>
         </div>
 
         <div className="specimen-bay">
@@ -61,7 +64,7 @@ export function SetupScreen({
           <div
             className={`print-specimen specimen--${layout.id}`}
             data-layout={layout.id}
-            aria-label={`Mô phỏng bản in ${layout.name}, ${layout.slots} khung ảnh`}
+            aria-label={messages.setup.specimenAria(currentLayoutCopy.name, layout.slots)}
           >
             <div className="specimen-frames">
               {specimenFrames.map((frameCode, index) => (
@@ -83,11 +86,11 @@ export function SetupScreen({
 
         <div className="light-table__footer">
           <div className="light-table__summary">
-            <strong>{layout.name}</strong>
+            <strong>{currentLayoutCopy.name}</strong>
             <span>
               {captureMode === 'photo-gallery'
-                ? `Chụp ${captureTarget} khung gốc, chọn ${layout.slots} ảnh đẹp nhất`
-                : `Chụp trực tiếp ${layout.slots} khung in`}
+                ? messages.setup.summaryGallery(captureTarget, layout.slots)
+                : messages.setup.summaryPhoto(layout.slots)}
             </span>
           </div>
           <span className="mono-tag">
@@ -100,14 +103,15 @@ export function SetupScreen({
         <div className="panel-heading">
           <span className="panel-step-num">01</span>
           <div>
-            <h2>Chọn bố cục in</h2>
-            <p>Bản xem trước bên bàn soi cập nhật ngay theo lựa chọn của bạn.</p>
+            <h2>{messages.setup.panelTitle}</h2>
+            <p>{messages.setup.panelDesc}</p>
           </div>
         </div>
 
-        <div className="layout-options" role="group" aria-label="Bố cục ảnh">
+        <div className="layout-options" role="group" aria-label={messages.setup.layoutGroupAria}>
           {LAYOUTS.map((item) => {
             const selected = layout.id === item.id
+            const itemCopy = messages.layouts[item.id]
             return (
               <button
                 key={item.id}
@@ -120,8 +124,8 @@ export function SetupScreen({
                   {Array.from({ length: item.slots }, (_, index) => <i key={index} />)}
                 </span>
                 <span className="layout-option__copy">
-                  <strong>{item.name}</strong>
-                  <small>{item.description}</small>
+                  <strong>{itemCopy.name}</strong>
+                  <small>{itemCopy.description}</small>
                 </span>
                 <span className="layout-option__meta">
                   {selected ? <Check size={16} aria-hidden="true" /> : `${padFrame(item.slots)}F`}
@@ -132,8 +136,8 @@ export function SetupScreen({
         </div>
 
         <div className="capture-mode-setting">
-          <span className="console-label">Loại phiên chụp</span>
-          <div role="group" aria-label="Loại phiên chụp">
+          <span className="console-label">{messages.setup.captureModeLabel}</span>
+          <div role="group" aria-label={messages.setup.captureModeAria}>
             <button
               type="button"
               className={captureMode === 'photo' ? 'selected' : ''}
@@ -142,8 +146,8 @@ export function SetupScreen({
             >
               <ImageIcon size={16} aria-hidden="true" />
               <span>
-                <strong>Chỉ ảnh</strong>
-                <small>Chụp đúng {layout.slots} khung ảnh</small>
+                <strong>{messages.setup.photoOnlyTitle}</strong>
+                <small>{messages.setup.photoOnlyDesc(layout.slots)}</small>
               </span>
             </button>
             <button
@@ -154,8 +158,8 @@ export function SetupScreen({
             >
               <Video size={16} aria-hidden="true" />
               <span>
-                <strong>Ảnh + LiveGallery</strong>
-                <small>Chụp {layout.slots * 2} khung, chọn ảnh đẹp nhất</small>
+                <strong>{messages.setup.photoGalleryTitle}</strong>
+                <small>{messages.setup.photoGalleryDesc(layout.slots * 2)}</small>
               </span>
             </button>
           </div>
@@ -163,17 +167,17 @@ export function SetupScreen({
 
         <div className="quick-settings">
           <label className="countdown-setting">
-            <span>Đếm ngược</span>
+            <span>{messages.setup.countdownLabel}</span>
             <span className="number-setting">
               <input
-                aria-label="Số giây đếm ngược"
+                aria-label={messages.setup.countdownAria}
                 type="number"
                 min={0}
                 max={30}
                 value={countdownSeconds}
                 onChange={(event) => onChangeCountdown(clampCountdown(Number(event.target.value)))}
               />
-              <span className="unit">giây</span>
+              <span className="unit">{messages.setup.secondsUnit}</span>
             </span>
           </label>
           <button
@@ -183,13 +187,13 @@ export function SetupScreen({
             onClick={onToggleSound}
           >
             {sound ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
-            <span>Âm chụp</span>
+            <span>{messages.setup.soundLabel}</span>
           </button>
         </div>
 
         <div className="flash-setting">
-          <span><Zap size={15} aria-hidden="true" /> Flash</span>
-          <div role="group" aria-label="Chế độ flash">
+          <span><Zap size={15} aria-hidden="true" /> {messages.setup.flashLabel}</span>
+          <div role="group" aria-label={messages.setup.flashAria}>
             {(['off', 'auto', 'on'] as FlashMode[]).map((mode) => (
               <button
                 key={mode}
@@ -198,7 +202,7 @@ export function SetupScreen({
                 aria-pressed={flashMode === mode}
                 onClick={() => onSelectFlashMode(mode)}
               >
-                {mode === 'off' ? 'Tắt' : mode === 'auto' ? 'Tự động' : 'Bật'}
+                {messages.setup.flashModes[mode]}
               </button>
             ))}
           </div>
@@ -206,9 +210,9 @@ export function SetupScreen({
 
         <button type="button" className="primary-button shutter-cta" onClick={onStartCamera}>
           <Camera size={19} aria-hidden="true" />
-          <span>Bật camera</span>
+          <span>{messages.setup.startCamera}</span>
         </button>
-        <p className="permission-copy">Trình duyệt sẽ hỏi quyền camera. Photobooth không dùng microphone.</p>
+        <p className="permission-copy">{messages.setup.permissionCopy}</p>
       </div>
     </section>
   )

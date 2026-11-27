@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { localizeBoothError } from '../i18n/core'
+import { useLocale } from '../i18n/useLocale'
 import { loadRemoteBackgrounds, type RemoteBackground } from '../lib/backgrounds'
 import { loadFrames } from '../lib/frames'
 import {
@@ -24,6 +26,7 @@ interface UseBoothCatalogOptions {
 }
 
 export function useBoothCatalog({ onInitialFramesLoaded, onNotice }: UseBoothCatalogOptions) {
+  const { locale, messages } = useLocale()
   const [frames, setFrames] = useState<BoothFrame[]>(FALLBACK_FRAMES)
   const [remoteFrames, setRemoteFrames] = useState(false)
   const [stickerAssets, setStickerAssets] = useState<StickerAsset[]>(FALLBACK_STICKERS)
@@ -84,10 +87,10 @@ export function useBoothCatalog({ onInitialFramesLoaded, onNotice }: UseBoothCat
     try {
       const added = await saveLocalFrame(file, file.name.replace(/\.[^.]+$/, ''), layout)
       setFrames((current) => [added, ...current])
-      onNotice('Đã lưu frame vào trình duyệt này.')
+      onNotice(messages.notices.savedLocalFrame)
       return added
     } catch (error) {
-      onNotice(error instanceof Error ? error.message : 'Không thể lưu frame.')
+      onNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.saveLocalFrameFailed)
       return null
     }
   }
@@ -96,17 +99,17 @@ export function useBoothCatalog({ onInitialFramesLoaded, onNotice }: UseBoothCat
     await deleteLocalFrame(item.id)
     if (item.assetUrl) URL.revokeObjectURL(item.assetUrl)
     setFrames((current) => current.filter((candidate) => candidate.id !== item.id))
-    onNotice('Đã xóa frame khỏi trình duyệt.')
+    onNotice(messages.notices.removedLocalFrame)
   }
 
   const addLocalBackground = async (file: File): Promise<LocalBackground | null> => {
     try {
       const added = await saveLocalBackground(file)
       setLocalBackgrounds((current) => [added, ...current])
-      onNotice('Đã lưu nền ghép vào trình duyệt này.')
+      onNotice(messages.notices.savedLocalBg)
       return added
     } catch (error) {
-      onNotice(error instanceof Error ? error.message : 'Không thể lưu nền ghép.')
+      onNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.saveLocalBgFailed)
       return null
     }
   }
@@ -115,7 +118,7 @@ export function useBoothCatalog({ onInitialFramesLoaded, onNotice }: UseBoothCat
     await deleteLocalBackground(item.id)
     setLocalBackgrounds((current) => current.filter((candidate) => candidate.id !== item.id))
     URL.revokeObjectURL(item.url)
-    onNotice('Đã xóa nền ghép khỏi trình duyệt.')
+    onNotice(messages.notices.removedLocalBg)
   }
 
   return {

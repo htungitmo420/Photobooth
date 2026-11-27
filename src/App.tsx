@@ -27,6 +27,9 @@ import { useBoothCatalog } from './hooks/useBoothCatalog'
 import { useCamera } from './hooks/useCamera'
 import { useNotices } from './hooks/useNotices'
 import { useTheme } from './hooks/useTheme'
+import { LocaleProvider } from './i18n/LocaleContext'
+import { appendLocaleParam, localizeBoothError } from './i18n/core'
+import { useLocale } from './i18n/useLocale'
 import {
   createDefaultCollageSettings,
   getSavedCountdown,
@@ -56,7 +59,8 @@ import type {
   StickerCategory,
 } from './types'
 
-export default function App() {
+function PhotoboothApp() {
+  const { locale, messages } = useLocale()
   const [theme, toggleTheme] = useTheme()
   const { notices, setNotice, dismissNotice } = useNotices()
   const [step, setStep] = useState<AppStep>('setup')
@@ -162,12 +166,12 @@ export default function App() {
         setMotionPhase('idle')
         void camera.setTorch(false)
         camera.stop()
-        setNotice('Phiên chụp đã tạm dừng vì bạn chuyển tab.')
+        setNotice(messages.notices.tabHiddenPaused)
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [camera, setNotice, step])
+  }, [camera, messages.notices.tabHiddenPaused, setNotice, step])
 
   const session: BoothSession = useMemo(() => ({
     layout,
@@ -257,7 +261,7 @@ export default function App() {
       }
       if (!await waitDuringCapture(0, token)) return null
       const dataUrl = camera.capture(mirror, zoomMode === 'web' ? cameraTransform : DEFAULT_CAMERA_TRANSFORM)
-      if (!dataUrl) throw new Error('Camera chưa sẵn sàng. Hãy thử lại.')
+      if (!dataUrl) throw new Error(messages.notices.cameraNotReady)
       playTone(sound, 260)
       return { id: makeId('photo'), dataUrl } satisfies CapturedPhoto
     } finally {
@@ -306,7 +310,7 @@ export default function App() {
         setStep('edit')
       }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Không thể chụp ảnh.')
+      setNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.captureFailed)
     } finally {
       if (token === cancelRef.current) {
         setCapturing(false)
@@ -327,7 +331,7 @@ export default function App() {
     setScreenFlash(false)
     setMotionPhase('idle')
     void camera.setTorch(false)
-    setNotice(capturePool.length ? 'Đã giữ các ảnh vừa chụp. Bạn có thể chụp tiếp.' : 'Đã hủy lượt chụp.')
+    setNotice(capturePool.length ? messages.notices.keptCapturedPhotos : messages.notices.cancelledCapture)
   }
 
   const togglePause = () => {
@@ -335,7 +339,7 @@ export default function App() {
     const next = !pausedRef.current
     pausedRef.current = next
     setPaused(next)
-    setNotice(next ? 'Đã tạm dừng. Ấn tiếp tục khi bạn sẵn sàng.' : 'Đang tiếp tục chuỗi chụp.')
+    setNotice(next ? messages.notices.pausedCapture : messages.notices.resumedCapture)
   }
 
   const reset = () => {
@@ -370,7 +374,7 @@ export default function App() {
     setSelectedCandidateIds((current) => {
       if (current.includes(id)) return current.filter((candidate) => candidate !== id)
       if (current.length >= layout.slots) {
-        setNotice(`Bạn chỉ cần chọn ${layout.slots} ảnh cho photobooth.`)
+        setNotice(messages.notices.maxSelection(layout.slots))
         return current
       }
       return [...current, id]
@@ -394,7 +398,7 @@ export default function App() {
       })
       setStep('edit')
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Không thể tạo ảnh chuyển động.')
+      setNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.motionCreateFailed)
     } finally {
       setMotionPhase('idle')
       setPreparingSelection(false)
@@ -403,7 +407,7 @@ export default function App() {
 
   const addSticker = (asset: StickerAsset) => {
     if (stickers.length >= 20) {
-      setNotice('Mỗi bộ ảnh dùng tối đa 20 sticker.')
+      setNotice(messages.notices.maxStickers)
       return
     }
     const offset = stickers.length * 0.055
@@ -469,7 +473,7 @@ export default function App() {
 
   const removeCollageItem = (id: string) => {
     if (collageSettings.items.length <= 1) {
-      setNotice('Nền ghép cần giữ lại ít nhất một bản photobooth.')
+      setNotice(messages.notices.minCollageItems)
       return
     }
     const next = collageSettings.items.filter((item) => item.id !== id)
@@ -479,7 +483,7 @@ export default function App() {
 
   const duplicateCollageItem = () => {
     if (collageSettings.items.length >= MAX_COLLAGE_ITEMS) {
-      setNotice(`Nền ghép dùng tối đa ${MAX_COLLAGE_ITEMS} bản photobooth.`)
+      setNotice(messages.notices.maxCollageItems(MAX_COLLAGE_ITEMS))
       return
     }
     const source = collageSettings.items.find((item) => item.id === selectedCollageItemId) ?? collageSettings.items.at(-1)
@@ -541,9 +545,9 @@ export default function App() {
     try {
       if (editorPanelTab === 'background') await downloadCollage(session, collageSettings, format)
       else await downloadStrip(session, format)
-      setNotice('Ảnh đã được tạo. Nếu chưa thấy file, hãy kiểm tra mục Tải xuống.')
+      setNotice(messages.notices.exportedPhoto)
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Xuất ảnh thất bại. Hãy thử lại.')
+      setNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.exportFailed)
     } finally {
       setExporting(false)
     }
@@ -555,11 +559,11 @@ export default function App() {
       ? candidatePhotos
       : photos
     if (galleryPhotos.length < layout.slots) {
-      setNotice('Bộ ảnh này chưa đủ dữ liệu để tạo LiveGallery.')
+      setNotice(messages.notices.notEnoughGalleryPhotos)
       return
     }
     setPublishingGallery(true)
-    setNotice('Đang tải ảnh lên LiveGallery…')
+    setNotice(messages.notices.uploadingGallery)
     try {
       let clip = motionClip
       if (!clip) {
@@ -568,7 +572,7 @@ export default function App() {
       }
       const stripBlob = await composeStripBlob(session, 'jpeg')
       const share = await publishGalleryAlbum({
-        title: caption.trim() || 'Khoảnh khắc của bạn',
+        title: caption.trim() || messages.notices.defaultAlbumTitle,
         message: collageSettings.message,
         layoutId: layout.id,
         selectedPhotoIds: photos.map((photo) => photo.id),
@@ -576,17 +580,18 @@ export default function App() {
         stripBlob,
         motion: clip,
       })
-      const qrDataUrl = await QRCode.toDataURL(share.url, {
+      const localizedShareUrl = appendLocaleParam(share.url, locale)
+      const qrDataUrl = await QRCode.toDataURL(localizedShareUrl, {
         width: 320,
         margin: 1,
         color: { dark: '#171412', light: '#ffffff' },
         errorCorrectionLevel: 'M',
       })
-      setGalleryShare({ ...share, qrDataUrl })
+      setGalleryShare({ ...share, url: localizedShareUrl, qrDataUrl })
       setGalleryShareOpen(true)
-      setNotice('Album LiveGallery đã sẵn sàng để quét QR.')
+      setNotice(messages.notices.galleryReady)
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Không thể tạo LiveGallery.')
+      setNotice(error instanceof Error ? localizeBoothError(error.message, locale) : messages.notices.galleryFailed)
     } finally {
       setPublishingGallery(false)
     }
@@ -596,9 +601,9 @@ export default function App() {
     if (!galleryShare) return
     try {
       await navigator.clipboard.writeText(galleryShare.shareCode)
-      setNotice('Đã sao chép mã album.')
+      setNotice(messages.notices.copiedAlbumCode)
     } catch {
-      setNotice(`Mã album: ${galleryShare.shareCode}`)
+      setNotice(messages.notices.albumCodeFallback(galleryShare.shareCode))
     }
   }
 
@@ -794,5 +799,13 @@ export default function App() {
         />
       )}
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <LocaleProvider>
+      <PhotoboothApp />
+    </LocaleProvider>
   )
 }

@@ -1,6 +1,8 @@
 import { Check, Moon, ShieldCheck, Sun } from 'lucide-react'
 import type { NoticeItem } from '../hooks/useNotices'
 import type { ThemeMode } from '../hooks/useTheme'
+import { LOCALE_OPTIONS } from '../i18n/core'
+import { useLocale } from '../i18n/useLocale'
 import type { CaptureMode } from '../motionCapture'
 import type { AppStep } from '../types'
 
@@ -15,11 +17,27 @@ function CameraMark({ size = 20 }: { size?: number }) {
   )
 }
 
-const STEP_ITEMS = [
-  ['setup', '01', 'Bố cục'],
-  ['capture', '02', 'Chụp ảnh'],
-  ['edit', '03', 'Hoàn thiện'],
-] as const
+export function LanguageSwitch() {
+  const { locale, setLocale, messages } = useLocale()
+  return (
+    <div className="lang-switch" role="group" aria-label={messages.languageSwitcherLabel}>
+      {LOCALE_OPTIONS.map((option) => (
+        <button
+          key={option.code}
+          type="button"
+          lang={option.code}
+          className={locale === option.code ? 'lang-switch__btn selected' : 'lang-switch__btn'}
+          aria-pressed={locale === option.code}
+          aria-label={option.nativeName}
+          title={option.nativeName}
+          onClick={() => setLocale(option.code)}
+        >
+          {option.shortLabel}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 interface TopbarProps {
   step: AppStep
@@ -30,12 +48,18 @@ interface TopbarProps {
 }
 
 export function Topbar({ step, captureMode, theme, onReset, onToggleTheme }: TopbarProps) {
+  const { messages } = useLocale()
+  const stepItems = [
+    ['setup', '01', messages.topbar.steps.setup],
+    ['capture', '02', messages.topbar.steps.capture],
+    ['edit', '03', messages.topbar.steps.edit],
+  ] as const
   const progressStep = step === 'select' ? 'capture' : step
-  const currentStepIndex = STEP_ITEMS.findIndex(([value]) => value === progressStep)
+  const currentStepIndex = stepItems.findIndex(([value]) => value === progressStep)
 
   return (
     <header className="topbar">
-      <button type="button" className="brand" onClick={onReset} aria-label="Về bước chọn bố cục">
+      <button type="button" className="brand" onClick={onReset} aria-label={messages.topbar.brandAria}>
         <span className="brand-mark" aria-hidden="true"><CameraMark size={20} /></span>
         <span className="brand-text">
           <strong>Khoảnh Khắc</strong>
@@ -43,8 +67,8 @@ export function Topbar({ step, captureMode, theme, onReset, onToggleTheme }: Top
         </span>
       </button>
 
-      <nav className="step-rail" aria-label="Tiến trình chụp">
-        {STEP_ITEMS.map(([value, number, label], index) => {
+      <nav className="step-rail" aria-label={messages.topbar.progressAria}>
+        {stepItems.map(([value, number, label], index) => {
           const isActive = progressStep === value
           const isDone = currentStepIndex > index
           return (
@@ -65,18 +89,19 @@ export function Topbar({ step, captureMode, theme, onReset, onToggleTheme }: Top
       <div className="topbar-right">
         <div className="privacy-note">
           <ShieldCheck size={15} aria-hidden="true" />
-          <span>{captureMode === 'photo-gallery' ? 'Chỉ tải lên khi tạo LiveGallery' : 'Xử lý trực tiếp trên thiết bị'}</span>
+          <span>{captureMode === 'photo-gallery' ? messages.topbar.privacyGallery : messages.topbar.privacyLocal}</span>
         </div>
+        <LanguageSwitch />
         <button
           type="button"
           className="theme-toggle"
           onClick={onToggleTheme}
-          aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang phòng tối'}
+          aria-label={theme === 'dark' ? messages.topbar.toLight : messages.topbar.toDark}
           aria-pressed={theme === 'light'}
-          title={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang phòng tối'}
+          title={theme === 'dark' ? messages.topbar.toLight : messages.topbar.toDark}
         >
           {theme === 'dark' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
-          <span>{theme === 'dark' ? 'Sáng' : 'Tối'}</span>
+          <span>{theme === 'dark' ? messages.topbar.lightShort : messages.topbar.darkShort}</span>
         </button>
       </div>
     </header>
@@ -90,6 +115,7 @@ export function NoticeStack({
   notices: NoticeItem[]
   onDismiss: (id: string) => void
 }) {
+  const { messages } = useLocale()
   if (notices.length === 0) return null
   return (
     <div className="notice-stack" aria-live="polite" aria-relevant="additions">
@@ -99,7 +125,7 @@ export function NoticeStack({
           <button
             type="button"
             onClick={() => onDismiss(item.id)}
-            aria-label="Đóng thông báo"
+            aria-label={messages.topbar.dismissNoticeAria}
           >
             ×
           </button>

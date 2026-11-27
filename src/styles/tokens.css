@@ -1,11 +1,11 @@
 :root {
   color-scheme: dark;
-  font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+  font-family: 'Be Vietnam Pro', 'Manrope', system-ui, -apple-system, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
-  --font-display: 'Fraunces', 'Cambria', 'Times New Roman', serif;
-  --font-sans: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+  --font-display: 'Fraunces', 'Playfair Display', 'Cambria', 'Times New Roman', serif;
+  --font-sans: 'Be Vietnam Pro', 'Manrope', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
 
   /* Matte 35mm Darkroom (default) */

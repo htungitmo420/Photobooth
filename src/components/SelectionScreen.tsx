@@ -1,4 +1,5 @@
 import { Check, LoaderCircle, RotateCcw } from 'lucide-react'
+import { useLocale } from '../i18n/useLocale'
 import { padFrame } from '../lib/boothUtils'
 import type { BoothLayout, CapturedPhoto } from '../types'
 
@@ -21,17 +22,18 @@ export function SelectionScreen({
   onRetakeAll,
   onConfirmSelection,
 }: SelectionScreenProps) {
+  const { messages } = useLocale()
   return (
     <section className="selection-screen">
       <div className="selection-heading">
         <div>
-          <p className="eyebrow">BẢNG PHIM · CHỌN ẢNH IN</p>
-          <h1>Giữ lại {layout.slots} khoảnh khắc bạn thích</h1>
-          <p>Toàn bộ {candidatePhotos.length} ảnh được lưu trong LiveGallery và ghép ở tốc độ 0,75 giây/ảnh.</p>
+          <p className="eyebrow">{messages.selection.eyebrow}</p>
+          <h1>{messages.selection.title(layout.slots)}</h1>
+          <p>{messages.selection.desc(candidatePhotos.length)}</p>
         </div>
         <div className="selection-count">
           <strong>{padFrame(selectedCandidateIds.length)}</strong>
-          <span>/ {padFrame(layout.slots)} KHUNG</span>
+          <span>/ {padFrame(layout.slots)} {messages.selection.framesUnit}</span>
         </div>
       </div>
       <div className="candidate-grid">
@@ -45,18 +47,18 @@ export function SelectionScreen({
               onClick={() => onToggleCandidate(photo.id)}
               aria-pressed={selectedIndex >= 0}
             >
-              <img src={photo.dataUrl} alt={`Ảnh chụp ${index + 1}`} />
+              <img src={photo.dataUrl} alt={messages.selection.photoAlt(index + 1)} />
               <span className="candidate-number">{padFrame(index + 1)}</span>
               {selectedIndex >= 0
-                ? <span className="candidate-choice"><Check size={15} aria-hidden="true" /> Ảnh in {padFrame(selectedIndex + 1)}</span>
-                : <span className="candidate-choice muted">Lưu vào LiveGallery</span>}
+                ? <span className="candidate-choice"><Check size={15} aria-hidden="true" /> {messages.selection.chosenBadge(padFrame(selectedIndex + 1))}</span>
+                : <span className="candidate-choice muted">{messages.selection.savedToGalleryBadge}</span>}
             </button>
           )
         })}
       </div>
       <div className="selection-actions">
         <button type="button" className="text-button" onClick={onRetakeAll}>
-          <RotateCcw size={17} aria-hidden="true" /> Chụp lại toàn bộ
+          <RotateCcw size={17} aria-hidden="true" /> {messages.selection.retakeAll}
         </button>
         <button
           type="button"
@@ -65,7 +67,7 @@ export function SelectionScreen({
           onClick={onConfirmSelection}
         >
           {preparingSelection ? <LoaderCircle className="spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
-          <span>{preparingSelection ? 'Đang tạo ảnh động…' : 'Dùng các ảnh đã chọn'}</span>
+          <span>{preparingSelection ? messages.selection.encoding : messages.selection.confirm}</span>
         </button>
       </div>
     </section>

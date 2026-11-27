@@ -1,7 +1,8 @@
 import { Maximize2, RotateCw, Trash2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { composeStrip } from '../rendering'
 import { getFrameSize } from '../frameSize'
+import { useLocale } from '../i18n/useLocale'
+import { composeStrip } from '../rendering'
 import type { BoothSession } from '../types'
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function StripPreview({ session, interactive = false, onMoveSticker, onUpdateSticker, onRemoveSticker, selectedStickerId, onSelectSticker, onPreview }: Props) {
+  const { messages } = useLocale()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(false)
@@ -149,7 +151,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
     <div ref={wrapRef} className={`strip-preview ${session.frame.assetUrl ? 'asset-frame' : ''} ${interactive ? 'interactive' : ''}`} style={{ aspectRatio: `${outputSize.width}/${outputSize.height}`, ...(fitSize ?? {}) }}>
       <canvas
         ref={canvasRef}
-        aria-label={onPreview ? 'Mở bản xem trước dải ảnh' : 'Bản xem trước dải ảnh'}
+        aria-label={onPreview ? messages.previews.openStripPreviewAria : messages.previews.stripPreviewAria}
         role={onPreview ? 'button' : 'img'}
         tabIndex={onPreview ? 0 : undefined}
         onClick={onPreview}
@@ -160,8 +162,8 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
           }
         }}
       />
-      {rendering && <span className="render-badge">Đang cập nhật…</span>}
-      {renderError && <span className="render-badge">Không thể hiển thị khung này.</span>}
+      {rendering && <span className="render-badge">{messages.previews.updating}</span>}
+      {renderError && <span className="render-badge">{messages.previews.frameRenderError}</span>}
       {interactive && session.stickers.map((sticker) => (
         <div
           className={`sticker-node ${selectedStickerId === sticker.id ? 'selected' : ''}`}
@@ -174,7 +176,7 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
         >
           <button
             className="sticker-handle"
-            aria-label={`Di chuyển sticker ${sticker.name}`}
+            aria-label={messages.previews.moveStickerAria(sticker.name)}
             onClick={() => onSelectSticker?.(sticker.id)}
             onKeyDown={(event) => {
               const step = event.shiftKey ? 0.025 : 0.008
@@ -191,9 +193,9 @@ export function StripPreview({ session, interactive = false, onMoveSticker, onUp
               : <span aria-hidden="true">{sticker.content}</span>}
           </button>
           {selectedStickerId === sticker.id && <>
-            <button className="sticker-direct-control rotate" onPointerDown={(event) => rotateSticker(event, sticker.id, sticker.rotation)} onClick={(event) => { if (event.detail === 0) onUpdateSticker?.(sticker.id, { rotation: sticker.rotation + 15 }) }} aria-label={`Giữ và kéo để xoay sticker ${sticker.name}`}><RotateCw /></button>
-            <button className="sticker-direct-control remove" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onRemoveSticker?.(sticker.id) }} aria-label={`Xóa sticker ${sticker.name}`}><Trash2 /></button>
-            <button className="sticker-direct-control resize" onPointerDown={(event) => resizeSticker(event, sticker.id, sticker.size)} aria-label={`Đổi kích thước sticker ${sticker.name}`}><Maximize2 /></button>
+            <button className="sticker-direct-control rotate" onPointerDown={(event) => rotateSticker(event, sticker.id, sticker.rotation)} onClick={(event) => { if (event.detail === 0) onUpdateSticker?.(sticker.id, { rotation: sticker.rotation + 15 }) }} aria-label={messages.previews.rotateStickerAria(sticker.name)}><RotateCw /></button>
+            <button className="sticker-direct-control remove" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onRemoveSticker?.(sticker.id) }} aria-label={messages.previews.deleteStickerAria(sticker.name)}><Trash2 /></button>
+            <button className="sticker-direct-control resize" onPointerDown={(event) => resizeSticker(event, sticker.id, sticker.size)} aria-label={messages.previews.resizeStickerAria(sticker.name)}><Maximize2 /></button>
           </>}
         </div>
       ))}

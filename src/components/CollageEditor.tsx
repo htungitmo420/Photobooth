@@ -2,6 +2,7 @@ import { Maximize2, RotateCw, Trash2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getCollageSize, type CollageItem, type CollageSettings } from '../collage'
 import { getFrameSize } from '../frameSize'
+import { useLocale } from '../i18n/useLocale'
 import { composeStrip } from '../rendering'
 import type { BoothSession } from '../types'
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function CollageEditor({ session, settings, selectedId, onSelect, onMove, onUpdate, onRemove }: Props) {
+  const { messages } = useLocale()
   const stageRef = useRef<HTMLDivElement>(null)
   const [stripUrl, setStripUrl] = useState<string | null>(null)
   const fallbackSize = getFrameSize(session.layout, session.frame)
@@ -146,7 +148,7 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
       <div
         ref={stageRef}
         className="collage-stage"
-        aria-label="Nền ghép photobooth"
+        aria-label={messages.previews.collageStageAria}
         style={{
           width: fitSize?.width,
           height: fitSize?.height,
@@ -174,7 +176,7 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
           >
             <button
               className="collage-item-body"
-              aria-label="Di chuyển bản photobooth"
+              aria-label={messages.previews.moveCollageItemAria}
               onPointerDown={(event) => startMove(event, item)}
               onClick={() => onSelect(item.id)}
               onKeyDown={(event) => {
@@ -185,12 +187,12 @@ export function CollageEditor({ session, settings, selectedId, onSelect, onMove,
                 onMove(item.id, item.x + delta[0], item.y + delta[1])
               }}
             >
-              {stripUrl ? <img src={stripUrl} alt="" draggable={false} /> : <span>Đang tạo ảnh…</span>}
+              {stripUrl ? <img src={stripUrl} alt="" draggable={false} /> : <span>{messages.previews.renderingStrip}</span>}
             </button>
             {selectedId === item.id && <>
-              <button className="collage-direct-control rotate" onPointerDown={(event) => startRotate(event, item)} aria-label="Giữ và kéo để xoay"><RotateCw /></button>
-              <button className="collage-direct-control remove" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(item.id) }} aria-label="Xóa bản photobooth"><Trash2 /></button>
-              <button className="collage-direct-control resize" onPointerDown={(event) => startResize(event, item)} aria-label="Giữ và kéo để đổi kích thước"><Maximize2 /></button>
+              <button className="collage-direct-control rotate" onPointerDown={(event) => startRotate(event, item)} aria-label={messages.previews.rotateCollageAria}><RotateCw /></button>
+              <button className="collage-direct-control remove" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(item.id) }} aria-label={messages.previews.deleteCollageItemAria}><Trash2 /></button>
+              <button className="collage-direct-control resize" onPointerDown={(event) => startResize(event, item)} aria-label={messages.previews.resizeCollageAria}><Maximize2 /></button>
             </>}
           </div>
         ))}

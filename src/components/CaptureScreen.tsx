@@ -13,6 +13,8 @@ import {
 import type { CameraTransform } from '../cameraGeometry'
 import type { ZoomMode } from '../cameraSource'
 import type { useCamera } from '../hooks/useCamera'
+import { localizeBoothError } from '../i18n/core'
+import { useLocale } from '../i18n/useLocale'
 import { padFrame } from '../lib/boothUtils'
 import type { CaptureMode } from '../motionCapture'
 import type { BoothLayout, CapturedPhoto, FlashMode } from '../types'
@@ -75,6 +77,9 @@ export function CaptureScreen({
   onSelectDevice,
   onBack,
 }: CaptureScreenProps) {
+  const { locale, messages } = useLocale()
+  const layoutName = messages.layouts[layout.id].name
+
   return (
     <section className="capture-layout">
       <div className="camera-card">
@@ -92,36 +97,42 @@ export function CaptureScreen({
           {!camera.active && (
             <div className="camera-placeholder">
               {camera.loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <Camera aria-hidden="true" />}
-              <p>{camera.loading ? 'Đang mở camera…' : camera.error ?? 'Camera đang tắt'}</p>
+              <p>
+                {camera.loading
+                  ? messages.capture.openingCamera
+                  : camera.error
+                    ? localizeBoothError(camera.error, locale)
+                    : messages.capture.cameraOff}
+              </p>
               {!camera.loading && (
-                <button type="button" onClick={() => void camera.start()}>Thử lại</button>
+                <button type="button" onClick={() => void camera.start()}>{messages.capture.retry}</button>
               )}
             </div>
           )}
           {countdown !== null && (
             <div className="countdown">
               <span>{countdown}</span>
-              <small>Chuẩn bị nhé!</small>
+              <small>{messages.capture.countdownPrompt}</small>
             </div>
           )}
           {motionPhase === 'encoding' && (
             <div className="motion-encoding">
               <LoaderCircle className="spin" aria-hidden="true" />
-              <strong>Đang tạo ảnh động…</strong>
+              <strong>{messages.capture.encodingMotion}</strong>
             </div>
           )}
           {paused && (
             <div className="pause-overlay">
               <Pause size={40} aria-hidden="true" />
-              <strong>Đã tạm dừng</strong>
-              <span>Ấn Tiếp tục để chụp tiếp.</span>
+              <strong>{messages.capture.pausedTitle}</strong>
+              <span>{messages.capture.pausedDesc}</span>
             </div>
           )}
           {screenFlash && <div className="flash" />}
           <div className="camera-progress">
             {retakeIndex !== null
-              ? `RETAKE ${padFrame(retakeIndex + 1)}`
-              : `FRAME ${padFrame(Math.min(capturePool.length + 1, captureTarget))} / ${padFrame(captureTarget)}`}
+              ? messages.capture.retakeHud(padFrame(retakeIndex + 1))
+              : messages.capture.frameHud(padFrame(Math.min(capturePool.length + 1, captureTarget)), padFrame(captureTarget))}
           </div>
           <div className="camera-telemetry">
             {camera.resolution
@@ -131,18 +142,18 @@ export function CaptureScreen({
         </div>
 
         <div className="camera-actions">
-          <button type="button" className="icon-button" onClick={onToggleMirror} disabled={capturing} aria-label="Lật ảnh" title="Lật ảnh">
+          <button type="button" className="icon-button" onClick={onToggleMirror} disabled={capturing} aria-label={messages.capture.flipAria} title={messages.capture.flipAria}>
             <FlipHorizontal2 size={18} aria-hidden="true" />
           </button>
-          <button type="button" className="shutter" onClick={onStartCapture} disabled={!camera.active || capturing} aria-label="Bắt đầu chụp">
+          <button type="button" className="shutter" onClick={onStartCapture} disabled={!camera.active || capturing} aria-label={messages.capture.shutterAria}>
             <span />
           </button>
           {capturing && (
-            <button type="button" className="icon-button pause-button" onClick={onTogglePause} aria-label={paused ? 'Tiếp tục chụp' : 'Tạm dừng chụp'} title={paused ? 'Tiếp tục chụp' : 'Tạm dừng chụp'}>
+            <button type="button" className="icon-button pause-button" onClick={onTogglePause} aria-label={paused ? messages.capture.resumeAria : messages.capture.pauseAria} title={paused ? messages.capture.resumeAria : messages.capture.pauseAria}>
               {paused ? <Play size={18} aria-hidden="true" /> : <Pause size={18} aria-hidden="true" />}
             </button>
           )}
-          <button type="button" className="icon-button" onClick={() => void camera.switchFacing()} disabled={capturing} aria-label="Đổi camera" title="Đổi camera">
+          <button type="button" className="icon-button" onClick={() => void camera.switchFacing()} disabled={capturing} aria-label={messages.capture.switchCameraAria} title={messages.capture.switchCameraAria}>
             <SwitchCamera size={18} aria-hidden="true" />
           </button>
         </div>
@@ -152,54 +163,61 @@ export function CaptureScreen({
             ? (
               <label>
                 <ZoomIn size={15} aria-hidden="true" />
-                <input aria-label="Zoom camera" type="range" min={1} max={3} step={0.05} value={cameraTransform.zoom} onChange={(event) => onChangeZoom(Number(event.target.value))} />
+                <input aria-label={messages.capture.zoomAria} type="range" min={1} max={3} step={0.05} value={cameraTransform.zoom} onChange={(event) => onChangeZoom(Number(event.target.value))} />
                 <span className="mono-value">{cameraTransform.zoom.toFixed(1)}×</span>
               </label>
             )
-            : <span className="device-zoom-hint"><ZoomIn size={15} aria-hidden="true" /> Zoom trực tiếp trên máy ảnh</span>}
-          <div className="flash-modes" role="group" aria-label="Đèn flash">
+            : <span className="device-zoom-hint"><ZoomIn size={15} aria-hidden="true" /> {messages.capture.deviceZoomHint}</span>}
+          <div className="flash-modes" role="group" aria-label={messages.capture.flashGroupAria}>
             {(['off', 'auto', 'on'] as FlashMode[]).map((mode) => (
               <button key={mode} type="button" className={flashMode === mode ? 'selected' : ''} aria-pressed={flashMode === mode} onClick={() => onSelectFlashMode(mode)} disabled={capturing}>
-                {mode === 'off' ? 'Tắt' : mode === 'auto' ? 'Auto' : 'Bật'}
+                {messages.capture.flashShort[mode]}
               </button>
             ))}
           </div>
         </div>
-        {capturing && <button type="button" className="cancel-button" onClick={onCancelCapture}>Hủy chuỗi chụp</button>}
+        {capturing && <button type="button" className="cancel-button" onClick={onCancelCapture}>{messages.capture.cancelCapture}</button>}
       </div>
 
       <aside className="capture-side">
         <div className="capture-side__head">
-          <p className="eyebrow">{layout.name} · {padFrame(captureTarget)} KHUNG</p>
-          <h1>Đổi dáng sau mỗi tiếng bíp</h1>
-          <p>Mỗi ảnh có {countdownSeconds} giây chuẩn bị.{captureMode === 'photo-gallery' && ` Máy sẽ chụp ${captureTarget} tấm để bạn chọn ${layout.slots} tấm cho photobooth; toàn bộ ảnh tạo chuyển động ở tốc độ 0,75 giây/ảnh trên LiveGallery.`}</p>
+          <p className="eyebrow">{layoutName} · {padFrame(captureTarget)} {messages.setup.framesUnit}</p>
+          <h1>{messages.capture.sideTitle}</h1>
+          <p>
+            {messages.capture.sideBaseDesc(countdownSeconds)}
+            {captureMode === 'photo-gallery' && messages.capture.sideGalleryExtra(captureTarget, layout.slots)}
+          </p>
         </div>
 
         {camera.devices.length > 1 && (
           <label className="device-picker">
-            <span>Máy ảnh</span>
+            <span>{messages.capture.cameraDeviceLabel}</span>
             <select value={camera.selectedDeviceId ?? ''} onChange={(event) => onSelectDevice(event.target.value)} disabled={capturing}>
-              {camera.devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${index + 1}`}</option>)}
+              {camera.devices.map((device, index) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || messages.capture.cameraFallbackLabel(index + 1)}
+                </option>
+              ))}
             </select>
           </label>
         )}
 
         <div className="zoom-source">
-          <span>Điều khiển zoom</span>
-          <div role="group" aria-label="Cách điều khiển zoom">
-            <button type="button" className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => onSelectZoomMode('web')} disabled={capturing}>Trong web</button>
-            <button type="button" className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => onSelectZoomMode('device')} disabled={capturing}>Trên máy ảnh</button>
+          <span>{messages.capture.zoomControlLabel}</span>
+          <div role="group" aria-label={messages.capture.zoomControlAria}>
+            <button type="button" className={zoomMode === 'web' ? 'selected' : ''} aria-pressed={zoomMode === 'web'} onClick={() => onSelectZoomMode('web')} disabled={capturing}>{messages.capture.zoomWeb}</button>
+            <button type="button" className={zoomMode === 'device' ? 'selected' : ''} aria-pressed={zoomMode === 'device'} onClick={() => onSelectZoomMode('device')} disabled={capturing}>{messages.capture.zoomDevice}</button>
           </div>
         </div>
 
         <div className="camera-capabilities">
-          <p className="camera-capability"><Zap size={14} aria-hidden="true" /> {camera.torchSupported ? 'Camera hỗ trợ đèn phần cứng' : 'Dùng flash màn hình khi cần'}</p>
+          <p className="camera-capability"><Zap size={14} aria-hidden="true" /> {camera.torchSupported ? messages.capture.torchSupported : messages.capture.screenFlashFallback}</p>
           {camera.resolution && <p className="camera-capability"><ImageIcon size={14} aria-hidden="true" /> <span className="mono-value">{camera.resolution.width} × {camera.resolution.height} px</span></p>}
         </div>
 
         <div className="contact-sheet-block">
           <div className="contact-sheet-head">
-            <span>BẢNG PHIM</span>
+            <span>{messages.capture.contactSheetTitle}</span>
             <span className="mono-value">{padFrame(capturePool.length)} / {padFrame(captureTarget)}</span>
           </div>
           <div className={`photo-slots ${captureTarget > 4 ? 'many' : ''}`}>
@@ -207,7 +225,7 @@ export function CaptureScreen({
               <div key={index} className={capturePool[index] ? 'filled' : ''}>
                 {capturePool[index]
                   ? <>
-                      <img src={capturePool[index].dataUrl} alt={`Ảnh ${index + 1}`} />
+                      <img src={capturePool[index].dataUrl} alt={messages.capture.photoAlt(index + 1)} />
                       <em className="slot-tag">{padFrame(index + 1)}</em>
                     </>
                   : <span>{padFrame(index + 1)}</span>}
@@ -217,7 +235,7 @@ export function CaptureScreen({
         </div>
 
         <button type="button" className="text-button" onClick={onBack}>
-          <ChevronLeft size={17} aria-hidden="true" /> Quay lại
+          <ChevronLeft size={17} aria-hidden="true" /> {messages.capture.back}
         </button>
       </aside>
     </section>

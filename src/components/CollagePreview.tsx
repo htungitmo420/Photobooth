@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getCollageSize, type CollageSettings } from '../collage'
+import { useLocale } from '../i18n/useLocale'
 import { composeCollage } from '../rendering'
 import type { BoothSession } from '../types'
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function CollagePreview({ session, settings }: Props) {
+  const { messages } = useLocale()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [fitSize, setFitSize] = useState<{ width: number; height: number } | null>(null)
@@ -55,11 +57,11 @@ export function CollagePreview({ session, settings }: Props) {
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label="Bản xem trước nền ghép hoàn chỉnh"
+        aria-label={messages.previews.collageFinalAria}
         style={{ width: fitSize?.width, height: fitSize?.height, aspectRatio: `${renderSize?.width ?? output.width}/${renderSize?.height ?? output.height}` }}
       />
-      {rendering && <span className="render-badge">Đang tạo bản xem trước…</span>}
-      {renderError && <span className="render-badge">Không thể hiển thị nền ghép.</span>}
+      {rendering && <span className="render-badge">{messages.previews.creatingPreview}</span>}
+      {renderError && <span className="render-badge">{messages.previews.collageRenderError}</span>}
     </div>
   )
 }
