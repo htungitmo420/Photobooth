@@ -240,7 +240,7 @@ export function revokeMotionClip(clip: MotionClip | null) {
 export function downloadMotionBlob(blob: Blob, extension: 'webm' | 'gif') {
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = `khoanh-khac-${Date.now()}.${extension}`
+  link.download = `photobooth-motion-${Date.now()}.${extension}`
   document.body.appendChild(link)
   link.click()
   link.remove()

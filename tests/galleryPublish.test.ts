@@ -205,9 +205,9 @@ describe('publishGalleryAlbum', () => {
     const initFiles = initBody!.files as Array<{ role: string; name: string; mimeType: string; byteSize: number }>
     expect(initFiles).toHaveLength(10)
     expect(initFiles[0]).toEqual({ role: 'strip', name: 'photobooth.jpg', mimeType: 'image/jpeg', byteSize: 8 })
-    expect(initFiles[1]).toEqual({ role: 'gif', name: 'khoanh-khac.gif', mimeType: 'image/gif', byteSize: 8 })
-    expect(initFiles[2]).toEqual({ role: 'photo', name: 'anh-01.jpg', mimeType: 'image/jpeg', byteSize: 7 })
-    expect(initFiles[9]).toEqual({ role: 'photo', name: 'anh-08.jpg', mimeType: 'image/jpeg', byteSize: 7 })
+    expect(initFiles[1]).toEqual({ role: 'gif', name: 'photobooth.gif', mimeType: 'image/gif', byteSize: 8 })
+    expect(initFiles[2]).toEqual({ role: 'photo', name: 'photo-01.jpg', mimeType: 'image/jpeg', byteSize: 7 })
+    expect(initFiles[9]).toEqual({ role: 'photo', name: 'photo-08.jpg', mimeType: 'image/jpeg', byteSize: 7 })
 
     // Bounded parallelism: 10 files with default concurrency 5 must run in parallel and never exceed 5
     expect(maxInFlightPuts).toBe(5)
@@ -231,7 +231,7 @@ describe('publishGalleryAlbum', () => {
     expect(completeFiles[1]).toEqual({
       index: 1,
       role: 'gif',
-      name: 'khoanh-khac.gif',
+      name: 'photobooth.gif',
       mimeType: 'image/gif',
       storagePath: 'r2:album-123/item-1.gif',
     })

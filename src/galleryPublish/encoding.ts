@@ -83,13 +83,13 @@ export async function prepareUploadFiles(
   const stripName = `photobooth.${extensionFor(stripMime)}`
   const stripFile = new File([input.stripBlob], stripName, { type: stripMime })
 
-  const gifFile = new File([input.motion.gifBlob], 'khoanh-khac.gif', { type: 'image/gif' })
+  const gifFile = new File([input.motion.gifBlob], 'photobooth.gif', { type: 'image/gif' })
 
   const photoFiles = await Promise.all(
     input.photos.map(async (photo, index): Promise<PreparedUploadFile> => {
       const blob = await photoToBlob(photo, fetchFn)
       const mimeType = normalizeImageMime(blob.type)
-      const name = `anh-${String(index + 1).padStart(2, '0')}.${extensionFor(mimeType)}`
+      const name = `photo-${String(index + 1).padStart(2, '0')}.${extensionFor(mimeType)}`
       return {
         role: 'photo',
         name,
@@ -101,7 +101,7 @@ export async function prepareUploadFiles(
 
   return [
     { role: 'strip', name: stripName, mimeType: stripMime, file: stripFile },
-    { role: 'gif', name: 'khoanh-khac.gif', mimeType: 'image/gif', file: gifFile },
+    { role: 'gif', name: 'photobooth.gif', mimeType: 'image/gif', file: gifFile },
     ...photoFiles,
   ]
 }
