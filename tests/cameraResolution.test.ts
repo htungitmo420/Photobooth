@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getCaptureCanvasSize, getHighestCameraConstraints } from './cameraResolution'
+import { getCaptureCanvasSize, getHighestCameraConstraints } from '../src/cameraResolution'
 
 describe('camera resolution', () => {
   it('requests the highest resolution reported by the camera', () => {

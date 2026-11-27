@@ -6,7 +6,7 @@ import {
   getSavedCountdown,
   padFrame,
   saveCountdown,
-} from './boothUtils'
+} from '../src/lib/boothUtils'
 
 function createMemoryStorage(): Storage {
   const store = new Map<string, string>()

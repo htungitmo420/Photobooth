@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { FRAME_TARGET_PIXELS, getFrameSize } from './frameSize'
-import { FALLBACK_FRAMES, LAYOUTS } from './presets'
+import { FRAME_TARGET_PIXELS, getFrameSize } from '../src/frameSize'
+import { FALLBACK_FRAMES, LAYOUTS } from '../src/presets'
 
 describe('frame output size', () => {
   it('keeps the native asset ratio while normalizing its pixel budget', () => {

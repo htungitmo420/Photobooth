@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getLayoutSlots } from './layoutGeometry'
-import { LAYOUTS } from './presets'
+import { getLayoutSlots } from '../src/layoutGeometry'
+import { LAYOUTS } from '../src/presets'
 
 function overlaps(a: ReturnType<typeof getLayoutSlots>[number], b: ReturnType<typeof getLayoutSlots>[number]) {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y

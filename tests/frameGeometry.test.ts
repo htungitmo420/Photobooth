@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { detectTransparentSlots, slotsMatchLayout } from './frameGeometry'
-import { LAYOUTS } from './presets'
+import { detectTransparentSlots, slotsMatchLayout } from '../src/frameGeometry'
+import { LAYOUTS } from '../src/presets'
 
 function frameWithHoles(width: number, height: number, holes: Array<[number, number, number, number]>) {
   const pixels = new Uint8ClampedArray(width * height * 4)

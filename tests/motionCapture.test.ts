@@ -5,7 +5,7 @@ import {
   getPhotoFrameDelay,
   getPhotoMotionDuration,
   selectRecorderMimeType,
-} from './motionCapture'
+} from '../src/motionCapture'
 
 describe('photo motion timing', () => {
   it('shows every captured photo for 0.75 seconds', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { suggestedZoomMode } from './cameraSource'
+import { suggestedZoomMode } from '../src/cameraSource'
 
 describe('camera zoom source', () => {
   it('uses web zoom for the built-in camera', () => {

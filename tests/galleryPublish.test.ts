@@ -7,7 +7,7 @@ import {
   publishGalleryAlbum,
   runWithConcurrency,
   type GalleryPublishInput,
-} from './galleryPublish'
+} from '../src/galleryPublish'
 
 const ENDPOINT = 'https://example-project.supabase.co/functions/v1/album-publish'
 const PUBLISHABLE_KEY = 'sb_publishable_test_key'

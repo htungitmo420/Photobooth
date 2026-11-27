@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createTwoStripCollage, getCollageItemSize, getCollageSize } from './collage'
+import { createTwoStripCollage, getCollageItemSize, getCollageSize } from '../src/collage'
 
 describe('collage geometry', () => {
   it('uses social export dimensions for each format', () => {

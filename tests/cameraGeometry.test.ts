@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampCameraTransform, getSourceCrop } from './cameraGeometry'
+import { clampCameraTransform, getSourceCrop } from '../src/cameraGeometry'
 
 describe('camera geometry', () => {
   it('creates a centered cover crop without exposing source edges', () => {
